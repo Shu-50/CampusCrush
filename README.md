@@ -69,6 +69,8 @@ A React Native dating app built with Expo, designed exclusively for college stud
 
 ## Installation & Setup
 
+### Frontend (React Native)
+
 1. **Prerequisites**
    ```bash
    npm install -g expo-cli
@@ -78,7 +80,7 @@ A React Native dating app built with Expo, designed exclusively for college stud
 
 2. **Install Dependencies**
    ```bash
-   cd campusCrush
+   cd CampusCrush
    npm install
    ```
 
@@ -93,6 +95,29 @@ A React Native dating app built with Expo, designed exclusively for college stud
    - iOS: `npm run ios` or scan QR code with Camera app
    - Android: `npm run android` or scan QR code with Expo Go app
    - Web: `npm run web`
+
+### Backend Setup
+
+1. **Navigate to Backend Directory**
+   ```bash
+   cd CampusCrush/backend
+   ```
+
+2. **Environment Configuration**
+   ```bash
+   # Copy the example environment file
+   cp .env.example .env
+   
+   # Edit with your actual credentials (see backend/README.md for details)
+   ```
+
+3. **Install Dependencies & Start**
+   ```bash
+   npm install
+   npm start
+   ```
+
+⚠️ **Security Note**: Never commit your `.env` file. It contains sensitive API keys and is already excluded from Git tracking.
 
 ## Project Structure
 
@@ -167,6 +192,20 @@ campusCrush/
 - Responsive design for mobile devices
 - Mock data for development and testing
 - Ready for backend API integration
+
+## Security & Environment Variables
+
+### 🔒 Important Security Notes
+
+- **Never commit `.env` files** - They contain sensitive API keys
+- **Use strong JWT secrets** - Generate random, long secret keys
+- **Rotate API keys regularly** - Especially for production environments
+- **Keep Cloudinary credentials secure** - They control image storage access
+
+### Environment Files
+- `backend/.env.example` - Template with placeholder values
+- `backend/.env` - Your actual credentials (Git ignored)
+- See `backend/README.md` for detailed setup instructions
 
 ## Next Steps for Production
 
