@@ -3,9 +3,9 @@
 ## **Current Status**: Backend is running ✅, Frontend can't connect ❌
 
 ### **Backend Status**: ✅ WORKING
-- Running on: `http://localhost:5000`
+- Running on: `http://localhost:5001`
 - Health check: ✅ `{"status":"OK","message":"Campus Crush API is running"}`
-- Endpoints working: `/api/health`, `/api/test`, `/api/auth/*`
+- Endpoints working: `/api/health`, `/api/auth/*`, `/api/users/*`
 
 ### **Issue**: React Native can't connect to backend
 
@@ -21,14 +21,14 @@ ifconfig | grep inet
 ```
 
 ### **Step 2: Update API URL in React Native**
-Open `Date/services/api.js` and replace the IP address:
+Open `campusCrush/services/api.js` and replace the IP address:
 
 ```javascript
 const API_URLS = __DEV__ ? [
-    Platform.OS === 'android' ? 'http://10.0.2.2:5000/api' : 'http://localhost:5000/api',
-    'http://127.0.0.1:5000/api',
-    'http://YOUR_ACTUAL_IP:5000/api', // <-- Replace with your IP
-    'http://192.168.1.100:5000/api',
+    Platform.OS === 'android' ? 'http://10.0.2.2:5001/api' : 'http://localhost:5001/api',
+    'http://127.0.0.1:5001/api',
+    'http://YOUR_ACTUAL_IP:5001/api', // <-- Replace with your IP
+    'http://192.168.1.100:5001/api',
 ] : ['https://your-production-api.com/api'];
 ```
 
@@ -49,7 +49,7 @@ This creates a public URL that works from any device.
 
 ### **Option B: Use ngrok (Recommended)**
 1. Install ngrok: https://ngrok.com/
-2. Run: `ngrok http 5000`
+2. Run: `ngrok http 5001`
 3. Copy the https URL (e.g., `https://abc123.ngrok.io`)
 4. Update API_BASE_URL to: `https://abc123.ngrok.io/api`
 
@@ -68,12 +68,12 @@ Look for these messages:
 
 ### **2. Test Each URL Manually**
 Try these URLs in your browser:
-- `http://localhost:5000/api/health`
-- `http://127.0.0.1:5000/api/health`  
-- `http://YOUR_IP:5000/api/health`
+- `http://localhost:5001/api/health`
+- `http://127.0.0.1:5001/api/health`  
+- `http://YOUR_IP:5001/api/health`
 
 ### **3. Check Firewall**
-Make sure Windows Firewall allows Node.js connections on port 5000.
+Make sure Windows Firewall allows Node.js connections on port 5001.
 
 ## **📱 Expected Behavior After Fix:**
 
@@ -85,12 +85,12 @@ Make sure Windows Firewall allows Node.js connections on port 5000.
 
 **Test backend from command line:**
 ```bash
-curl http://localhost:5000/api/health
+curl http://localhost:5001/api/health
 ```
 
 **Test registration:**
 ```bash
-curl -X POST http://localhost:5000/api/auth/register \
+curl -X POST http://localhost:5001/api/auth/register \
   -H "Content-Type: application/json" \
   -d '{"name":"Test","email":"test@uni.edu","password":"Test123"}'
 ```

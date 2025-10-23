@@ -9,6 +9,7 @@ import {
     KeyboardAvoidingView,
     Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useColorScheme } from 'react-native';
 import { Colors } from '../../constants/Colors';
@@ -51,65 +52,67 @@ export default function ForgotPasswordScreen() {
     };
 
     return (
-        <KeyboardAvoidingView
-            style={[styles.container, { backgroundColor: colors.background }]}
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        >
-            <View style={styles.content}>
-                <View style={styles.header}>
-                    <Text style={styles.emoji}>🔐</Text>
-                    <Text style={[styles.title, { color: colors.text }]}>Reset Password</Text>
-                    <Text style={[styles.subtitle, { color: colors.icon }]}>
-                        Enter your college email address and we'll send you instructions to reset your password.
-                    </Text>
-                </View>
-
-                <View style={styles.form}>
-                    <View style={styles.inputContainer}>
-                        <Text style={[styles.label, { color: colors.text }]}>College Email</Text>
-                        <TextInput
-                            style={[
-                                styles.input,
-                                {
-                                    backgroundColor: colors.surface,
-                                    borderColor: colors.border,
-                                    color: colors.text,
-                                },
-                            ]}
-                            placeholder="your.email@college.edu"
-                            placeholderTextColor={colors.icon}
-                            value={email}
-                            onChangeText={setEmail}
-                            keyboardType="email-address"
-                            autoCapitalize="none"
-                        />
+        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+            <KeyboardAvoidingView
+                style={{ flex: 1 }}
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            >
+                <View style={styles.content}>
+                    <View style={styles.header}>
+                        <Text style={styles.emoji}>🔐</Text>
+                        <Text style={[styles.title, { color: colors.text }]}>Reset Password</Text>
+                        <Text style={[styles.subtitle, { color: colors.icon }]}>
+                            Enter your college email address and we'll send you instructions to reset your password.
+                        </Text>
                     </View>
 
-                    <TouchableOpacity
-                        style={[
-                            styles.resetButton,
-                            { backgroundColor: colors.primary },
-                            loading && styles.disabledButton,
-                        ]}
-                        onPress={handleResetPassword}
-                        disabled={loading}
-                    >
-                        <Text style={styles.resetButtonText}>
-                            {loading ? 'Sending...' : 'Send Reset Instructions'}
-                        </Text>
-                    </TouchableOpacity>
+                    <View style={styles.form}>
+                        <View style={styles.inputContainer}>
+                            <Text style={[styles.label, { color: colors.text }]}>College Email</Text>
+                            <TextInput
+                                style={[
+                                    styles.input,
+                                    {
+                                        backgroundColor: colors.surface,
+                                        borderColor: colors.border,
+                                        color: colors.text,
+                                    },
+                                ]}
+                                placeholder="your.email@college.edu"
+                                placeholderTextColor={colors.icon}
+                                value={email}
+                                onChangeText={setEmail}
+                                keyboardType="email-address"
+                                autoCapitalize="none"
+                            />
+                        </View>
 
-                    <TouchableOpacity
-                        style={styles.backButton}
-                        onPress={() => router.back()}
-                    >
-                        <Text style={[styles.backButtonText, { color: colors.primary }]}>
-                            Back to Login
-                        </Text>
-                    </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[
+                                styles.resetButton,
+                                { backgroundColor: colors.primary },
+                                loading && styles.disabledButton,
+                            ]}
+                            onPress={handleResetPassword}
+                            disabled={loading}
+                        >
+                            <Text style={styles.resetButtonText}>
+                                {loading ? 'Sending...' : 'Send Reset Instructions'}
+                            </Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={styles.backButton}
+                            onPress={() => router.back()}
+                        >
+                            <Text style={[styles.backButtonText, { color: colors.primary }]}>
+                                Back to Login
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
                 </View>
-            </View>
-        </KeyboardAvoidingView>
+            </KeyboardAvoidingView>
+        </SafeAreaView>
     );
 }
 

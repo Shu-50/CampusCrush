@@ -7,55 +7,18 @@ import {
     TouchableOpacity,
     Image,
     TextInput,
+    RefreshControl,
+    Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useColorScheme } from 'react-native';
 import { Colors } from '../../constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import ApiService from '../../services/api';
 
-const mockChats = [
-    {
-        id: '1',
-        name: 'Sarah',
-        lastMessage: 'Hey! How was your CS exam?',
-        timestamp: '2m ago',
-        unreadCount: 2,
-        avatar: 'https://via.placeholder.com/50x50/7B2CBF/FFFFFF?text=S',
-        isOnline: true,
-        isTyping: false,
-    },
-    {
-        id: '2',
-        name: 'Emma',
-        lastMessage: 'That hiking trail was amazing! 🏔️',
-        timestamp: '1h ago',
-        unreadCount: 0,
-        avatar: 'https://via.placeholder.com/50x50/9D4EDD/FFFFFF?text=E',
-        isOnline: false,
-        isTyping: false,
-    },
-    {
-        id: '3',
-        name: 'Alex',
-        lastMessage: 'Want to jam this weekend?',
-        timestamp: '3h ago',
-        unreadCount: 1,
-        avatar: 'https://via.placeholder.com/50x50/C77DFF/FFFFFF?text=A',
-        isOnline: true,
-        isTyping: true,
-    },
-    {
-        id: '4',
-        name: 'Maya',
-        lastMessage: 'Thanks for the study notes! 📚',
-        timestamp: '1d ago',
-        unreadCount: 0,
-        avatar: 'https://via.placeholder.com/50x50/E0AAFF/FFFFFF?text=M',
-        isOnline: false,
-        isTyping: false,
-    },
-];
+
 
 export default function ChatScreen() {
     const router = useRouter();
@@ -65,24 +28,42 @@ export default function ChatScreen() {
     const [chats, setChats] = useState([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
 
     useEffect(() => {
         loadMatches();
     }, []);
 
+    // Refresh matches when tab is focused
+    useFocusEffect(
+        React.useCallback(() => {
+            loadMatches();
+        }, [])
+    );
+
     const loadMatches = async () => {
         try {
+            console.log('💬 Loading matches/chats...');
             const response = await ApiService.getMatches();
-            if (response.success) {
-                setChats(response.data.matches);
+            if (response.success && response.data) {
+                console.log('✅ Found matches:', response.data.matches?.length || 0);
+                setChats(response.data.matches || []);
+            } else {
+                console.log('⚠️ No matches found');
+                setChats([]);
             }
         } catch (error) {
-            console.error('Error loading matches:', error);
-            // Fallback to mock data for development
-            setChats(mockChats);
+            console.error('❌ Error loading matches:', error);
+            setChats([]);
         } finally {
             setLoading(false);
+            setRefreshing(false);
         }
+    };
+
+    const onRefresh = () => {
+        setRefreshing(true);
+        loadMatches();
     };
 
     const filteredChats = chats.filter(chat =>
@@ -137,7 +118,7 @@ export default function ChatScreen() {
     );
 
     return (
-        <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
             <View style={styles.header}>
                 <Text style={[styles.title, { color: colors.text }]}>Messages</Text>
                 <TouchableOpacity style={styles.headerButton}>
@@ -167,6 +148,14 @@ export default function ChatScreen() {
                     renderItem={renderChatItem}
                     contentContainerStyle={styles.chatsList}
                     showsVerticalScrollIndicator={false}
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={refreshing}
+                            onRefresh={onRefresh}
+                            colors={[colors.primary]}
+                            tintColor={colors.primary}
+                        />
+                    }
                 />
             )}
 
@@ -182,7 +171,7 @@ export default function ChatScreen() {
                     <Text style={[styles.tabText, { color: colors.icon }]}>Online</Text>
                 </TouchableOpacity>
             </View>
-        </View>
+        </SafeAreaView>
     );
 }
 

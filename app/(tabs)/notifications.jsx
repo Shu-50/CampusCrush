@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     View,
     Text,
@@ -6,79 +6,17 @@ import {
     FlatList,
     TouchableOpacity,
     Image,
+    RefreshControl,
+    Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useColorScheme } from 'react-native';
 import { Colors } from '../../constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
+import ApiService from '../../services/api';
 
-const mockNotifications = [
-    {
-        id: '1',
-        type: 'match',
-        title: 'New Match!',
-        message: 'You and Sarah liked each other',
-        avatar: 'https://via.placeholder.com/40x40/7B2CBF/FFFFFF?text=S',
-        timestamp: '5m ago',
-        isRead: false,
-        icon: 'heart',
-        iconColor: '#FF6B6B',
-    },
-    {
-        id: '2',
-        type: 'message',
-        title: 'New Message',
-        message: 'Emma sent you a message',
-        avatar: 'https://via.placeholder.com/40x40/9D4EDD/FFFFFF?text=E',
-        timestamp: '1h ago',
-        isRead: false,
-        icon: 'chatbubble',
-        iconColor: '#4ECDC4',
-    },
-    {
-        id: '3',
-        type: 'like',
-        title: 'Someone likes you!',
-        message: 'You have a new admirer',
-        avatar: null,
-        timestamp: '2h ago',
-        isRead: true,
-        icon: 'heart-outline',
-        iconColor: '#FF6B6B',
-    },
-    {
-        id: '4',
-        type: 'confession',
-        title: 'Confession Update',
-        message: 'Your confession got 50 upvotes!',
-        avatar: null,
-        timestamp: '4h ago',
-        isRead: true,
-        icon: 'trending-up',
-        iconColor: '#45B7D1',
-    },
-    {
-        id: '5',
-        type: 'comment',
-        title: 'New Comment',
-        message: 'Someone commented on your confession',
-        avatar: null,
-        timestamp: '6h ago',
-        isRead: true,
-        icon: 'chatbubble-outline',
-        iconColor: '#96CEB4',
-    },
-    {
-        id: '6',
-        type: 'match',
-        title: 'New Match!',
-        message: 'You and Alex liked each other',
-        avatar: 'https://via.placeholder.com/40x40/C77DFF/FFFFFF?text=A',
-        timestamp: '1d ago',
-        isRead: true,
-        icon: 'heart',
-        iconColor: '#FF6B6B',
-    },
-];
+
 
 const tabs = ['All', 'Matches', 'Messages', 'Likes'];
 
@@ -86,8 +24,76 @@ export default function NotificationsScreen() {
     const colorScheme = useColorScheme();
     const colors = Colors[colorScheme ?? 'light'];
 
-    const [notifications, setNotifications] = useState(mockNotifications);
+    const [notifications, setNotifications] = useState([]);
     const [selectedTab, setSelectedTab] = useState('All');
+    const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
+
+    useEffect(() => {
+        loadNotifications();
+    }, []);
+
+    // Only refresh notifications when tab is focused if there are no notifications
+    useFocusEffect(
+        React.useCallback(() => {
+            if (notifications.length === 0) {
+                loadNotifications();
+            }
+        }, [notifications.length])
+    );
+
+    const loadNotifications = async () => {
+        try {
+            console.log('📬 Loading notifications...');
+            const response = await ApiService.getNotifications();
+            console.log('📬 API Response:', response);
+            if (response.success && response.data) {
+                console.log('📬 Notifications received:', response.data.notifications?.length || 0);
+                setNotifications(response.data.notifications || []);
+            } else {
+                console.log('⚠️ No notifications found');
+                setNotifications([]);
+            }
+        } catch (error) {
+            console.error('❌ Error loading notifications:', error);
+            setNotifications([]);
+        } finally {
+            setLoading(false);
+            setRefreshing(false);
+        }
+    };
+
+    const markAsRead = async (notificationId) => {
+        try {
+            await ApiService.markNotificationAsRead(notificationId);
+            setNotifications(prev => prev.map(notif =>
+                notif.id === notificationId ? { ...notif, isRead: true } : notif
+            ));
+        } catch (error) {
+            console.error('❌ Error marking notification as read:', error);
+        }
+    };
+
+    const markAllAsRead = async () => {
+        try {
+            await ApiService.markAllNotificationsAsRead();
+            setNotifications(prev => prev.map(notif => ({ ...notif, isRead: true })));
+        } catch (error) {
+            console.error('❌ Error marking all notifications as read:', error);
+        }
+    };
+
+    const clearAllNotifications = () => {
+        console.log('🧹 Clearing all notifications from state');
+        setNotifications([]);
+    };
+
+    const onRefresh = () => {
+        setRefreshing(true);
+        // Clear current notifications to force fresh load
+        setNotifications([]);
+        loadNotifications();
+    };
 
     const filteredNotifications = selectedTab === 'All'
         ? notifications
@@ -105,16 +111,6 @@ export default function NotificationsScreen() {
         });
 
     const unreadCount = notifications.filter(n => !n.isRead).length;
-
-    const markAsRead = (id) => {
-        setNotifications(prev => prev.map(notif =>
-            notif.id === id ? { ...notif, isRead: true } : notif
-        ));
-    };
-
-    const markAllAsRead = () => {
-        setNotifications(prev => prev.map(notif => ({ ...notif, isRead: true })));
-    };
 
     const renderNotification = ({ item }) => (
         <TouchableOpacity
@@ -165,16 +161,24 @@ export default function NotificationsScreen() {
     );
 
     return (
-        <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
             <View style={styles.header}>
                 <Text style={[styles.title, { color: colors.text }]}>Activity</Text>
-                {unreadCount > 0 && (
-                    <TouchableOpacity onPress={markAllAsRead}>
-                        <Text style={[styles.markAllRead, { color: colors.primary }]}>
-                            Mark all read
+                <View style={{ flexDirection: 'row', gap: 10 }}>
+                    {/* Debug button - remove after testing */}
+                    <TouchableOpacity onPress={clearAllNotifications}>
+                        <Text style={[styles.markAllRead, { color: colors.error }]}>
+                            Clear
                         </Text>
                     </TouchableOpacity>
-                )}
+                    {unreadCount > 0 && (
+                        <TouchableOpacity onPress={markAllAsRead}>
+                            <Text style={[styles.markAllRead, { color: colors.primary }]}>
+                                Mark all read
+                            </Text>
+                        </TouchableOpacity>
+                    )}
+                </View>
             </View>
 
             <View style={styles.tabs}>
@@ -227,7 +231,7 @@ export default function NotificationsScreen() {
                     showsVerticalScrollIndicator={false}
                 />
             )}
-        </View>
+        </SafeAreaView>
     );
 }
 

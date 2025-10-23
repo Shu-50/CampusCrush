@@ -70,7 +70,8 @@ router.get('/profile', auth, async (req, res) => {
                     branch: user.branch || null,
                     gender: user.gender || null,
                     interests: user.interests || [],
-                    lookingFor: user.lookingFor || 'Not sure'
+                    lookingFor: user.lookingFor || 'Not sure',
+                    preference: user.preference || null
                 }
             }
         });
@@ -83,7 +84,7 @@ router.get('/profile', auth, async (req, res) => {
 // Update profile
 router.put('/profile', auth, async (req, res) => {
     try {
-        const { name, bio, age, year, branch, gender, interests, lookingFor } = req.body;
+        const { name, bio, age, year, branch, gender, interests, lookingFor, preference } = req.body;
 
         // Validate age
         if (age && (age < 18 || age > 30)) {
@@ -114,10 +115,11 @@ router.put('/profile', auth, async (req, res) => {
         if (bio !== undefined) updates.bio = bio.trim();
         if (age !== undefined) updates.age = age;
         if (year !== undefined) updates.year = year;
-        if (branch !== undefined) updates.branch = branch;
+        if (branch !== undefined) updates.branch = branch.trim();
         if (gender !== undefined) updates.gender = gender;
         if (interests !== undefined) updates.interests = interests;
         if (lookingFor !== undefined) updates.lookingFor = lookingFor;
+        if (preference !== undefined) updates.preference = preference;
 
         const user = await User.findByIdAndUpdate(
             req.user.userId,
@@ -141,7 +143,8 @@ router.put('/profile', auth, async (req, res) => {
                     branch: user.branch || null,
                     gender: user.gender || null,
                     interests: user.interests || [],
-                    lookingFor: user.lookingFor || 'Not sure'
+                    lookingFor: user.lookingFor || 'Not sure',
+                    preference: user.preference || null
                 }
             }
         });
@@ -228,6 +231,16 @@ router.post('/upload-photo', auth, upload.single('photo'), async (req, res) => {
         });
     } catch (error) {
         console.error('Upload photo error:', error);
+
+        // Handle validation errors specifically
+        if (error.name === 'ValidationError') {
+            const validationErrors = Object.values(error.errors).map(err => err.message);
+            return res.status(400).json({
+                success: false,
+                message: 'Validation failed: ' + validationErrors.join(', ')
+            });
+        }
+
         res.status(500).json({
             success: false,
             message: 'Photo upload failed: ' + error.message
@@ -235,40 +248,109 @@ router.post('/upload-photo', auth, upload.single('photo'), async (req, res) => {
     }
 });
 
+// Test route to check if users routes are working
+router.get('/test', (req, res) => {
+    res.json({ success: true, message: 'Users routes are working' });
+});
+
 // Delete photo
 router.delete('/photo/:publicId', auth, async (req, res) => {
     try {
-        const { publicId } = req.params;
+        const encodedPublicId = req.params.publicId;
+        const publicId = decodeURIComponent(encodedPublicId);
+        console.log('🗑️ Delete photo request for encoded publicId:', encodedPublicId);
+        console.log('🗑️ Decoded publicId:', publicId);
+
         const user = await User.findById(req.user.userId);
+        console.log('👤 User photos before deletion:', user.photos);
 
         const photoIndex = user.photos.findIndex(photo => photo.publicId === publicId);
         if (photoIndex === -1) {
+            console.log('❌ Photo not found in user photos');
             return res.status(404).json({
                 success: false,
                 message: 'Photo not found'
             });
         }
 
+        console.log('🔄 Deleting from Cloudinary...');
         // Delete from Cloudinary
-        await cloudinary.uploader.destroy(publicId);
+        try {
+            const cloudinaryResult = await cloudinary.uploader.destroy(publicId);
+            console.log('☁️ Cloudinary deletion result:', cloudinaryResult);
+        } catch (cloudinaryError) {
+            console.error('⚠️ Cloudinary deletion failed:', cloudinaryError);
+            // Continue with database deletion even if Cloudinary fails
+        }
 
         // Remove from user photos
         user.photos.splice(photoIndex, 1);
+        console.log('📸 Photos after removal:', user.photos);
 
         // If deleted photo was main and there are other photos, make first photo main
         if (user.photos.length > 0 && !user.photos.some(photo => photo.isMain)) {
             user.photos[0].isMain = true;
+            console.log('⭐ Set new main photo:', user.photos[0].publicId);
         }
 
         await user.save();
+        console.log('✅ User saved successfully');
 
         res.json({
             success: true,
             message: 'Photo deleted successfully'
         });
     } catch (error) {
-        console.error('Delete photo error:', error);
-        res.status(500).json({ success: false, message: 'Server error' });
+        console.error('❌ Delete photo error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Server error: ' + error.message
+        });
+    }
+});
+
+// Set main photo
+router.put('/photo/:publicId/main', auth, async (req, res) => {
+    try {
+        const encodedPublicId = req.params.publicId;
+        const publicId = decodeURIComponent(encodedPublicId);
+        console.log('⭐ Set main photo request for encoded publicId:', encodedPublicId);
+        console.log('⭐ Decoded publicId:', publicId);
+
+        const user = await User.findById(req.user.userId);
+        console.log('👤 User photos before setting main:', user.photos);
+
+        const photoIndex = user.photos.findIndex(photo => photo.publicId === publicId);
+        if (photoIndex === -1) {
+            console.log('❌ Photo not found in user photos');
+            return res.status(404).json({
+                success: false,
+                message: 'Photo not found'
+            });
+        }
+
+        // Set all photos to not main
+        user.photos.forEach(photo => {
+            photo.isMain = false;
+        });
+
+        // Set the selected photo as main
+        user.photos[photoIndex].isMain = true;
+        console.log('⭐ Set photo as main:', publicId);
+
+        await user.save();
+        console.log('✅ User saved successfully');
+
+        res.json({
+            success: true,
+            message: 'Main photo updated successfully'
+        });
+    } catch (error) {
+        console.error('❌ Set main photo error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Server error: ' + error.message
+        });
     }
 });
 
@@ -278,13 +360,18 @@ router.get('/discover', auth, async (req, res) => {
         const { limit = 10 } = req.query;
         const currentUser = await User.findById(req.user.userId);
 
-        // Get other users from the same college
+        // Get other users from the same college with complete profiles
         const users = await User.find({
             _id: { $ne: req.user.userId },
-            college: currentUser.college
+            college: currentUser.college,
+            // Only show users with at least basic profile info
+            name: { $exists: true, $ne: '' },
+            photos: { $exists: true, $not: { $size: 0 } }
         })
-            .select('name photos bio age year branch college')
+            .select('name photos bio age year branch college interests gender lookingFor')
             .limit(parseInt(limit));
+
+        console.log(`🔍 Found ${users.length} users for discovery`);
 
         res.json({
             success: true,
@@ -292,12 +379,29 @@ router.get('/discover', auth, async (req, res) => {
                 users: users.map(user => ({
                     id: user._id,
                     name: user.name,
-                    photos: user.photos || [],
+                    photos: (user.photos || []).map(photo => {
+                        // Initialize likes array if it doesn't exist (simple array of user IDs)
+                        const likes = photo.likes || [];
+                        const likeCount = photo.likeCount || 0;
+
+                        return {
+                            url: photo.url,
+                            publicId: photo.publicId,
+                            isMain: photo.isMain,
+                            likeCount: likeCount,
+                            isLikedByCurrentUser: likes.includes(req.user.userId)
+                        };
+                    }),
                     bio: user.bio || '',
                     age: user.age || null,
                     year: user.year || null,
                     branch: user.branch || null,
-                    college: user.college
+                    college: user.college,
+                    interests: user.interests || [],
+                    gender: user.gender || null,
+                    lookingFor: user.lookingFor || null,
+                    isVerified: true, // For now, assume all users are verified
+                    distance: null // Distance calculation not implemented yet
                 }))
             }
         });

@@ -4,7 +4,7 @@
 
 ### **🔧 Server Configuration:**
 - **Running**: `server.js` (full backend with all features)
-- **Port**: 5000
+- **Port**: 5001
 - **Database**: Disconnected (graceful fallback to mock data)
 - **Features**: All endpoints available
 

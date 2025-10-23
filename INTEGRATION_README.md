@@ -27,15 +27,15 @@
 
 ### **1. Start Backend**
 ```bash
-cd Date/backend
+cd campusCrush/backend
 npm install
 npm run dev
 ```
-Backend runs on: `http://localhost:5000`
+Backend runs on: `http://localhost:5001`
 
 ### **2. Start Frontend**
 ```bash
-cd Date
+cd campusCrush
 npm install
 npm start
 ```

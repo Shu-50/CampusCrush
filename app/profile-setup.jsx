@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     View,
     Text,
@@ -8,7 +8,10 @@ import {
     ScrollView,
     Alert,
     Image,
+    Modal,
+    FlatList,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useColorScheme } from 'react-native';
 import { Colors } from '../constants/Colors';
@@ -22,30 +25,160 @@ const interests = [
     'Photography', 'Dancing', 'Fitness', 'Technology', 'Fashion', 'Nature'
 ];
 
-const years = ['Freshman', 'Sophomore', 'Junior', 'Senior', 'Graduate'];
+const years = [
+    { label: '1st Year', value: '1st' },
+    { label: '2nd Year', value: '2nd' },
+    { label: '3rd Year', value: '3rd' },
+    { label: 'Final Year', value: 'Final' }
+];
 const branches = [
-    'Computer Science', 'Engineering', 'Business', 'Medicine', 'Arts',
-    'Science', 'Law', 'Education', 'Psychology', 'Other'
+    // Engineering
+    { label: 'CSE (Computer Science Engineering)', value: 'CSE' },
+    { label: 'IT (Information Technology)', value: 'IT' },
+    { label: 'SE (Software Engineering)', value: 'SE' },
+    { label: 'EE (Electrical Engineering)', value: 'EE' },
+    { label: 'ECE (Electronics & Communication)', value: 'ECE' },
+    { label: 'ENTC (Electronics & Telecommunication)', value: 'ENTC' },
+    { label: 'ME (Mechanical Engineering)', value: 'ME' },
+    { label: 'CE (Civil Engineering)', value: 'CE' },
+    { label: 'CHE (Chemical Engineering)', value: 'CHE' },
+    { label: 'BME (Biomedical Engineering)', value: 'BME' },
+    { label: 'AE (Aerospace Engineering)', value: 'AE' },
+    // AI/Tech
+    { label: 'AIDS (AI & Data Science)', value: 'AIDS' },
+    { label: 'ML (Machine Learning)', value: 'ML' },
+    { label: 'AI (Artificial Intelligence)', value: 'AI' },
+    { label: 'DS (Data Science)', value: 'DS' },
+    { label: 'CYBER (Cyber Security)', value: 'CYBER' },
+    { label: 'IOT (Internet of Things)', value: 'IOT' },
+    { label: 'ROBOTICS (Robotics Engineering)', value: 'ROBOTICS' },
+    // Business
+    { label: 'MBA (Master of Business Administration)', value: 'MBA' },
+    { label: 'BBA (Bachelor of Business Administration)', value: 'BBA' },
+    { label: 'MKTG (Marketing)', value: 'MKTG' },
+    { label: 'FIN (Finance)', value: 'FIN' },
+    { label: 'ACC (Accounting)', value: 'ACC' },
+    { label: 'ECON (Economics)', value: 'ECON' },
+    // Sciences
+    { label: 'BIO (Biology)', value: 'BIO' },
+    { label: 'CHEM (Chemistry)', value: 'CHEM' },
+    { label: 'PHY (Physics)', value: 'PHY' },
+    { label: 'MATH (Mathematics)', value: 'MATH' },
+    { label: 'STAT (Statistics)', value: 'STAT' },
+    { label: 'PSYCH (Psychology)', value: 'PSYCH' },
+    // Other
+    { label: 'Other (Enter manually)', value: 'OTHER' }
 ];
 
 export default function ProfileSetupScreen() {
     const router = useRouter();
     const colorScheme = useColorScheme();
     const colors = Colors[colorScheme ?? 'light'];
-    const { updateUser } = useAuth();
+    const { updateUser, user } = useAuth();
 
     const [profile, setProfile] = useState({
+        name: '',
         bio: '',
         age: '',
         year: '',
         branch: '',
+        customBranch: '',
         gender: '',
         preference: '',
+        lookingFor: 'Not sure',
         selectedInterests: [],
     });
     const [photos, setPhotos] = useState([]);
     const [loading, setLoading] = useState(false);
     const [uploadingPhoto, setUploadingPhoto] = useState(false);
+    const [loadingProfile, setLoadingProfile] = useState(true);
+    const [pickerVisible, setPickerVisible] = useState(false);
+    const [pickerData, setPickerData] = useState({
+        title: '',
+        options: [],
+        currentValue: '',
+        onSelect: () => { }
+    });
+    const [searchQuery, setSearchQuery] = useState('');
+
+    // Load existing profile data if available
+    useEffect(() => {
+        loadExistingProfile();
+    }, []);
+
+    const loadExistingProfile = async () => {
+        setLoadingProfile(true);
+        try {
+            console.log('🔄 Loading existing profile...');
+            const response = await ApiService.getCurrentUser();
+            console.log('📡 API Response:', response);
+
+            if (response.success && response.data.user) {
+                const userData = response.data.user;
+                console.log('👤 User Data:', userData);
+
+                // Check if branch is a predefined value or custom
+                const predefinedBranch = branches.find(b => b.value === userData.branch);
+                console.log('🏢 Branch check:', { userBranch: userData.branch, predefinedBranch });
+
+                const profileData = {
+                    name: userData.name || '',
+                    bio: userData.bio || '',
+                    age: userData.age ? userData.age.toString() : '',
+                    year: userData.year || '',
+                    branch: predefinedBranch ? userData.branch : 'OTHER',
+                    customBranch: predefinedBranch ? '' : (userData.branch || ''),
+                    gender: userData.gender || '',
+                    preference: userData.preference || '',
+                    lookingFor: userData.lookingFor || 'Not sure',
+                    selectedInterests: userData.interests || [],
+                };
+
+                console.log('📝 Setting profile data:', profileData);
+                setProfile(prev => ({ ...prev, ...profileData }));
+
+                if (userData.photos && userData.photos.length > 0) {
+                    console.log('📸 Setting photos:', userData.photos);
+                    setPhotos(userData.photos);
+                } else {
+                    console.log('📸 No photos found');
+                }
+            } else if (user) {
+                console.log('🔄 Using auth context user as fallback:', user);
+                const userData = user;
+
+                // Check if branch is a predefined value or custom
+                const predefinedBranch = branches.find(b => b.value === userData.branch);
+
+                const profileData = {
+                    name: userData.name || '',
+                    bio: userData.bio || '',
+                    age: userData.age ? userData.age.toString() : '',
+                    year: userData.year || '',
+                    branch: predefinedBranch ? userData.branch : 'OTHER',
+                    customBranch: predefinedBranch ? '' : (userData.branch || ''),
+                    gender: userData.gender || '',
+                    preference: userData.preference || '',
+                    lookingFor: userData.lookingFor || 'Not sure',
+                    selectedInterests: userData.interests || [],
+                };
+
+                console.log('📝 Setting profile data from auth context:', profileData);
+                setProfile(prev => ({ ...prev, ...profileData }));
+
+                if (userData.photos && userData.photos.length > 0) {
+                    console.log('📸 Setting photos from auth context:', userData.photos);
+                    setPhotos(userData.photos);
+                }
+            } else {
+                console.log('❌ No user data available from API or auth context');
+            }
+        } catch (error) {
+            console.error('❌ Error loading profile:', error);
+        } finally {
+            setLoadingProfile(false);
+        }
+    };
 
     const handleInterestToggle = (interest) => {
         setProfile(prev => ({
@@ -57,14 +190,21 @@ export default function ProfileSetupScreen() {
     };
 
     const showPicker = (title, options, currentValue, onSelect) => {
-        Alert.alert(
+        console.log('🔍 ShowPicker called:', { title, optionsCount: options.length, currentValue });
+        setPickerData({
             title,
-            '',
-            options.map(option => ({
-                text: option,
-                onPress: () => onSelect(option)
-            })).concat([{ text: 'Cancel', style: 'cancel' }])
-        );
+            options,
+            currentValue,
+            onSelect
+        });
+        setSearchQuery('');
+        setPickerVisible(true);
+    };
+
+    const handlePickerSelect = (option) => {
+        console.log('✅ Option selected:', option);
+        pickerData.onSelect(option);
+        setPickerVisible(false);
     };
 
     const pickImage = async () => {
@@ -91,7 +231,8 @@ export default function ProfileSetupScreen() {
                 }
             } catch (error) {
                 console.error('Error uploading photo:', error);
-                Alert.alert('Error', 'Failed to upload photo');
+                const errorMessage = error.message || 'Failed to upload photo';
+                Alert.alert('Upload Error', errorMessage);
             } finally {
                 setUploadingPhoto(false);
             }
@@ -100,18 +241,65 @@ export default function ProfileSetupScreen() {
 
     const removePhoto = async (publicId) => {
         try {
-            await ApiService.deletePhoto(publicId);
-            setPhotos(prev => prev.filter(photo => photo.publicId !== publicId));
+            console.log('🗑️ Deleting photo with publicId:', publicId);
+
+            // Show confirmation dialog
+            Alert.alert(
+                'Delete Photo',
+                'Are you sure you want to delete this photo? This action cannot be undone.',
+                [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                        text: 'Delete',
+                        style: 'destructive',
+                        onPress: async () => {
+                            try {
+                                console.log('🔄 Calling API to delete photo...');
+                                const response = await ApiService.deletePhoto(publicId);
+                                console.log('✅ Delete response:', response);
+
+                                if (response.success) {
+                                    setPhotos(prev => prev.filter(photo => photo.publicId !== publicId));
+                                    Alert.alert('Success', 'Photo deleted successfully');
+                                } else {
+                                    Alert.alert('Error', response.message || 'Failed to delete photo');
+                                }
+                            } catch (error) {
+                                console.error('❌ Error deleting photo:', error);
+                                Alert.alert('Error', error.message || 'Failed to delete photo');
+                            }
+                        }
+                    }
+                ]
+            );
         } catch (error) {
-            console.error('Error deleting photo:', error);
+            console.error('❌ Error in removePhoto:', error);
             Alert.alert('Error', 'Failed to delete photo');
         }
     };
 
+    const setMainPhoto = async (publicId) => {
+        try {
+            await ApiService.setMainPhoto(publicId);
+            setPhotos(prev => prev.map(photo => ({
+                ...photo,
+                isMain: photo.publicId === publicId
+            })));
+        } catch (error) {
+            console.error('Error setting main photo:', error);
+            Alert.alert('Error', 'Failed to set main photo');
+        }
+    };
+
     const handleSave = async () => {
-        if (!profile.bio || !profile.age || !profile.year || !profile.branch ||
-            !profile.gender || !profile.preference) {
+        if (!profile.name || !profile.bio || !profile.age || !profile.year || !profile.branch ||
+            !profile.gender || !profile.preference || !profile.lookingFor) {
             Alert.alert('Error', 'Please fill in all required fields');
+            return;
+        }
+
+        if (profile.branch === 'OTHER' && !profile.customBranch.trim()) {
+            Alert.alert('Error', 'Please enter your branch name');
             return;
         }
 
@@ -129,15 +317,22 @@ export default function ProfileSetupScreen() {
 
         try {
             const response = await ApiService.updateProfile({
-                ...profile,
+                name: profile.name,
+                bio: profile.bio,
                 age: parseInt(profile.age),
+                year: profile.year,
+                branch: profile.branch === 'OTHER' ? profile.customBranch : profile.branch,
+                gender: profile.gender,
+                preference: profile.preference,
+                lookingFor: profile.lookingFor,
+                interests: profile.selectedInterests,
             });
 
             if (response.success) {
                 updateUser(response.data.user);
                 Alert.alert(
                     'Success',
-                    'Profile setup complete!',
+                    user ? 'Profile updated successfully!' : 'Profile setup complete!',
                     [
                         {
                             text: 'OK',
@@ -156,80 +351,105 @@ export default function ProfileSetupScreen() {
         }
     };
 
+    if (loadingProfile) {
+        return (
+            <View style={[styles.container, { backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' }]}>
+                <Text style={styles.emoji}>⏳</Text>
+                <Text style={[styles.title, { color: colors.text }]}>Loading Profile...</Text>
+                <Text style={[styles.subtitle, { color: colors.icon }]}>
+                    Getting your information ready
+                </Text>
+            </View>
+        );
+    }
+
     return (
-        <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
-            <View style={styles.content}>
-                <View style={styles.header}>
-                    <Text style={styles.emoji}>✨</Text>
-                    <Text style={[styles.title, { color: colors.text }]}>Setup Your Profile</Text>
-                    <Text style={[styles.subtitle, { color: colors.icon }]}>
-                        Tell us about yourself to find better matches
-                    </Text>
-                </View>
+        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+            <ScrollView style={{ flex: 1 }}>
+                <View style={styles.content}>
+                    {/* Navigation Header */}
+                    <View style={styles.navHeader}>
+                        <TouchableOpacity onPress={() => router.back()}>
+                            <Ionicons name="arrow-back" size={24} color={colors.text} />
+                        </TouchableOpacity>
+                        <View style={{ width: 24 }} />
+                        <View style={{ width: 24 }} />
+                    </View>
 
-                <View style={styles.form}>
-                    <View style={styles.inputContainer}>
-                        <Text style={[styles.label, { color: colors.text }]}>Photos (Required)</Text>
-                        <View style={styles.photosContainer}>
-                            {photos.map((photo, index) => (
-                                <View key={photo.publicId} style={styles.photoItem}>
-                                    <Image source={{ uri: photo.url }} style={styles.photoPreview} />
+                    <View style={styles.header}>
+                        <Text style={styles.emoji}>✨</Text>
+                        <Text style={[styles.title, { color: colors.text }]}>
+                            {user ? 'Edit Your Profile' : 'Setup Your Profile'}
+                        </Text>
+                        <Text style={[styles.subtitle, { color: colors.icon }]}>
+                            {user ? 'Update your information and photos' : 'Tell us about yourself to find better matches'}
+                        </Text>
+                    </View>
+
+                    <View style={styles.form}>
+                        <View style={styles.inputContainer}>
+                            <Text style={[styles.label, { color: colors.text }]}>Photos (Required)</Text>
+                            <View style={styles.photosContainer}>
+                                {photos.map((photo, index) => (
+                                    <View key={photo.publicId || index} style={styles.photoItem}>
+                                        <Image source={{ uri: photo.url || photo }} style={styles.photoPreview} />
+
+                                        {/* Delete Photo Button */}
+                                        <TouchableOpacity
+                                            style={[styles.removePhotoButton, { backgroundColor: colors.error }]}
+                                            onPress={() => {
+                                                console.log('🖼️ Photo object:', photo);
+                                                console.log('🆔 PublicId:', photo.publicId);
+                                                if (photo.publicId) {
+                                                    removePhoto(photo.publicId);
+                                                } else {
+                                                    Alert.alert('Error', 'Cannot delete photo: No publicId found');
+                                                }
+                                            }}
+                                        >
+                                            <Ionicons name="close" size={16} color="white" />
+                                        </TouchableOpacity>
+
+                                        {/* Set as Main Button */}
+                                        {!photo.isMain && (
+                                            <TouchableOpacity
+                                                style={[styles.setMainButton, { backgroundColor: colors.primary }]}
+                                                onPress={() => setMainPhoto(photo.publicId)}
+                                            >
+                                                <Ionicons name="star" size={12} color="white" />
+                                            </TouchableOpacity>
+                                        )}
+
+                                        {/* Main Photo Badge */}
+                                        {photo.isMain && (
+                                            <View style={[styles.mainPhotoBadge, { backgroundColor: colors.primary }]}>
+                                                <Text style={styles.mainPhotoText}>Main</Text>
+                                            </View>
+                                        )}
+                                    </View>
+                                ))}
+
+                                {photos.length < 6 && (
                                     <TouchableOpacity
-                                        style={[styles.removePhotoButton, { backgroundColor: colors.error }]}
-                                        onPress={() => removePhoto(photo.publicId)}
+                                        style={[styles.addPhotoButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                                        onPress={pickImage}
+                                        disabled={uploadingPhoto}
                                     >
-                                        <Ionicons name="close" size={16} color="white" />
+                                        <Ionicons
+                                            name={uploadingPhoto ? "hourglass" : "camera"}
+                                            size={32}
+                                            color={colors.primary}
+                                        />
+                                        <Text style={[styles.addPhotoText, { color: colors.text }]}>
+                                            {uploadingPhoto ? 'Uploading...' : 'Add Photo'}
+                                        </Text>
                                     </TouchableOpacity>
-                                    {photo.isMain && (
-                                        <View style={[styles.mainPhotoBadge, { backgroundColor: colors.primary }]}>
-                                            <Text style={styles.mainPhotoText}>Main</Text>
-                                        </View>
-                                    )}
-                                </View>
-                            ))}
-
-                            {photos.length < 6 && (
-                                <TouchableOpacity
-                                    style={[styles.addPhotoButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
-                                    onPress={pickImage}
-                                    disabled={uploadingPhoto}
-                                >
-                                    <Ionicons
-                                        name={uploadingPhoto ? "hourglass" : "camera"}
-                                        size={32}
-                                        color={colors.primary}
-                                    />
-                                    <Text style={[styles.addPhotoText, { color: colors.text }]}>
-                                        {uploadingPhoto ? 'Uploading...' : 'Add Photo'}
-                                    </Text>
-                                </TouchableOpacity>
-                            )}
+                                )}
+                            </View>
                         </View>
-                    </View>
 
-                    <View style={styles.inputContainer}>
-                        <Text style={[styles.label, { color: colors.text }]}>Bio</Text>
-                        <TextInput
-                            style={[
-                                styles.textArea,
-                                {
-                                    backgroundColor: colors.surface,
-                                    borderColor: colors.border,
-                                    color: colors.text,
-                                },
-                            ]}
-                            placeholder="Tell us about yourself..."
-                            placeholderTextColor={colors.icon}
-                            value={profile.bio}
-                            onChangeText={(value) => setProfile(prev => ({ ...prev, bio: value }))}
-                            multiline
-                            numberOfLines={4}
-                        />
-                    </View>
-
-                    <View style={styles.row}>
-                        <View style={[styles.inputContainer, { flex: 1, marginRight: 10 }]}>
-                            <Text style={[styles.label, { color: colors.text }]}>Age</Text>
+                        <View style={styles.inputContainer}>
+                            <Text style={[styles.label, { color: colors.text }]}>Name</Text>
                             <TextInput
                                 style={[
                                     styles.input,
@@ -239,16 +459,83 @@ export default function ProfileSetupScreen() {
                                         color: colors.text,
                                     },
                                 ]}
-                                placeholder="18"
+                                placeholder="Enter your full name"
                                 placeholderTextColor={colors.icon}
-                                value={profile.age}
-                                onChangeText={(value) => setProfile(prev => ({ ...prev, age: value }))}
-                                keyboardType="numeric"
+                                value={profile.name}
+                                onChangeText={(value) => setProfile(prev => ({ ...prev, name: value }))}
                             />
                         </View>
 
-                        <View style={[styles.inputContainer, { flex: 1, marginLeft: 10 }]}>
-                            <Text style={[styles.label, { color: colors.text }]}>Year</Text>
+                        <View style={styles.inputContainer}>
+                            <Text style={[styles.label, { color: colors.text }]}>Bio</Text>
+                            <TextInput
+                                style={[
+                                    styles.textArea,
+                                    {
+                                        backgroundColor: colors.surface,
+                                        borderColor: colors.border,
+                                        color: colors.text,
+                                    },
+                                ]}
+                                placeholder="Tell us about yourself..."
+                                placeholderTextColor={colors.icon}
+                                value={profile.bio}
+                                onChangeText={(value) => setProfile(prev => ({ ...prev, bio: value }))}
+                                multiline
+                                numberOfLines={4}
+                            />
+                        </View>
+
+                        <View style={styles.row}>
+                            <View style={[styles.inputContainer, { flex: 1, marginRight: 10 }]}>
+                                <Text style={[styles.label, { color: colors.text }]}>Age</Text>
+                                <TextInput
+                                    style={[
+                                        styles.input,
+                                        {
+                                            backgroundColor: colors.surface,
+                                            borderColor: colors.border,
+                                            color: colors.text,
+                                        },
+                                    ]}
+                                    placeholder="18"
+                                    placeholderTextColor={colors.icon}
+                                    value={profile.age}
+                                    onChangeText={(value) => setProfile(prev => ({ ...prev, age: value }))}
+                                    keyboardType="numeric"
+                                />
+                            </View>
+
+                            <View style={[styles.inputContainer, { flex: 1, marginLeft: 10 }]}>
+                                <Text style={[styles.label, { color: colors.text }]}>Year</Text>
+                                <TouchableOpacity
+                                    style={[
+                                        styles.input,
+                                        {
+                                            backgroundColor: colors.surface,
+                                            borderColor: colors.border,
+                                            justifyContent: 'center',
+                                        },
+                                    ]}
+                                    onPress={() => showPicker(
+                                        'Select Year',
+                                        years.map(y => y.label),
+                                        years.find(y => y.value === profile.year)?.label || '',
+                                        (yearLabel) => {
+                                            const yearObj = years.find(y => y.label === yearLabel);
+                                            setProfile(prev => ({ ...prev, year: yearObj?.value || '' }));
+                                        }
+                                    )}
+                                >
+                                    <Text style={[{ color: profile.year ? colors.text : colors.icon }]}>
+                                        {years.find(y => y.value === profile.year)?.label || 'Select Year'}
+                                    </Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+
+                        <View style={styles.inputContainer}>
+                            <Text style={[styles.label, { color: colors.text }]}>Branch/Major</Text>
                             <TouchableOpacity
                                 style={[
                                     styles.input,
@@ -259,145 +546,263 @@ export default function ProfileSetupScreen() {
                                     },
                                 ]}
                                 onPress={() => showPicker(
-                                    'Select Year',
-                                    years,
-                                    profile.year,
-                                    (year) => setProfile(prev => ({ ...prev, year }))
+                                    'Select Branch',
+                                    branches.map(b => b.label),
+                                    branches.find(b => b.value === profile.branch)?.label || '',
+                                    (branchLabel) => {
+                                        const branchObj = branches.find(b => b.label === branchLabel);
+                                        setProfile(prev => ({
+                                            ...prev,
+                                            branch: branchObj?.value || '',
+                                            customBranch: branchObj?.value === 'OTHER' ? prev.customBranch : ''
+                                        }));
+                                    }
                                 )}
                             >
-                                <Text style={[{ color: profile.year ? colors.text : colors.icon }]}>
-                                    {profile.year || 'Select Year'}
+                                <Text style={[{ color: profile.branch ? colors.text : colors.icon }]}>
+                                    {branches.find(b => b.value === profile.branch)?.label || 'Select Branch'}
                                 </Text>
                             </TouchableOpacity>
                         </View>
-                    </View>
 
-                    <View style={styles.inputContainer}>
-                        <Text style={[styles.label, { color: colors.text }]}>Branch/Major</Text>
+                        {profile.branch === 'OTHER' && (
+                            <View style={styles.inputContainer}>
+                                <Text style={[styles.label, { color: colors.text }]}>Enter Your Branch</Text>
+                                <TextInput
+                                    style={[
+                                        styles.input,
+                                        {
+                                            backgroundColor: colors.surface,
+                                            borderColor: colors.border,
+                                            color: colors.text,
+                                        },
+                                    ]}
+                                    placeholder="e.g., Biotechnology, Architecture, etc."
+                                    placeholderTextColor={colors.icon}
+                                    value={profile.customBranch}
+                                    onChangeText={(value) => setProfile(prev => ({ ...prev, customBranch: value }))}
+                                />
+                            </View>
+                        )}
+
+                        <View style={styles.row}>
+                            <View style={[styles.inputContainer, { flex: 1, marginRight: 10 }]}>
+                                <Text style={[styles.label, { color: colors.text }]}>Gender</Text>
+                                <TouchableOpacity
+                                    style={[
+                                        styles.input,
+                                        {
+                                            backgroundColor: colors.surface,
+                                            borderColor: colors.border,
+                                            justifyContent: 'center',
+                                        },
+                                    ]}
+                                    onPress={() => showPicker(
+                                        'Select Gender',
+                                        ['Male', 'Female', 'Non-binary', 'Other'],
+                                        profile.gender,
+                                        (gender) => setProfile(prev => ({ ...prev, gender }))
+                                    )}
+                                >
+                                    <Text style={[{ color: profile.gender ? colors.text : colors.icon }]}>
+                                        {profile.gender || 'Select Gender'}
+                                    </Text>
+                                </TouchableOpacity>
+                            </View>
+
+                            <View style={[styles.inputContainer, { flex: 1, marginLeft: 10 }]}>
+                                <Text style={[styles.label, { color: colors.text }]}>Preference</Text>
+                                <TouchableOpacity
+                                    style={[
+                                        styles.input,
+                                        {
+                                            backgroundColor: colors.surface,
+                                            borderColor: colors.border,
+                                            justifyContent: 'center',
+                                        },
+                                    ]}
+                                    onPress={() => showPicker(
+                                        'Select Preference',
+                                        ['Male', 'Female', 'Both'],
+                                        profile.preference,
+                                        (preference) => setProfile(prev => ({ ...prev, preference }))
+                                    )}
+                                >
+                                    <Text style={[{ color: profile.preference ? colors.text : colors.icon }]}>
+                                        {profile.preference || 'Select Preference'}
+                                    </Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+
+                        <View style={styles.inputContainer}>
+                            <Text style={[styles.label, { color: colors.text }]}>Looking For</Text>
+                            <TouchableOpacity
+                                style={[
+                                    styles.input,
+                                    {
+                                        backgroundColor: colors.surface,
+                                        borderColor: colors.border,
+                                        justifyContent: 'center',
+                                    },
+                                ]}
+                                onPress={() => showPicker(
+                                    'What are you looking for?',
+                                    ['Relationship', 'Friendship', 'Casual', 'Not sure'],
+                                    profile.lookingFor,
+                                    (lookingFor) => setProfile(prev => ({ ...prev, lookingFor }))
+                                )}
+                            >
+                                <Text style={[{ color: profile.lookingFor ? colors.text : colors.icon }]}>
+                                    {profile.lookingFor || 'Select what you\'re looking for'}
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+
+                        <View style={styles.inputContainer}>
+                            <Text style={[styles.label, { color: colors.text }]}>
+                                Interests (Select at least 3)
+                            </Text>
+                            <View style={styles.interestsContainer}>
+                                {interests.map(interest => (
+                                    <TouchableOpacity
+                                        key={interest}
+                                        style={[
+                                            styles.interestTag,
+                                            {
+                                                backgroundColor: profile.selectedInterests.includes(interest)
+                                                    ? colors.primary
+                                                    : colors.surface,
+                                                borderColor: colors.border,
+                                            },
+                                        ]}
+                                        onPress={() => handleInterestToggle(interest)}
+                                    >
+                                        <Text
+                                            style={[
+                                                styles.interestText,
+                                                {
+                                                    color: profile.selectedInterests.includes(interest)
+                                                        ? 'white'
+                                                        : colors.text,
+                                                },
+                                            ]}
+                                        >
+                                            {interest}
+                                        </Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                        </View>
+
                         <TouchableOpacity
                             style={[
-                                styles.input,
-                                {
-                                    backgroundColor: colors.surface,
-                                    borderColor: colors.border,
-                                    justifyContent: 'center',
-                                },
+                                styles.saveButton,
+                                { backgroundColor: colors.primary },
+                                loading && styles.disabledButton,
                             ]}
-                            onPress={() => showPicker(
-                                'Select Branch',
-                                branches,
-                                profile.branch,
-                                (branch) => setProfile(prev => ({ ...prev, branch }))
-                            )}
+                            onPress={handleSave}
+                            disabled={loading}
                         >
-                            <Text style={[{ color: profile.branch ? colors.text : colors.icon }]}>
-                                {profile.branch || 'Select Branch'}
+                            <Text style={styles.saveButtonText}>
+                                {loading ? 'Saving...' : (user ? 'Update Profile' : 'Complete Setup')}
                             </Text>
                         </TouchableOpacity>
                     </View>
-
-                    <View style={styles.row}>
-                        <View style={[styles.inputContainer, { flex: 1, marginRight: 10 }]}>
-                            <Text style={[styles.label, { color: colors.text }]}>Gender</Text>
-                            <TouchableOpacity
-                                style={[
-                                    styles.input,
-                                    {
-                                        backgroundColor: colors.surface,
-                                        borderColor: colors.border,
-                                        justifyContent: 'center',
-                                    },
-                                ]}
-                                onPress={() => showPicker(
-                                    'Select Gender',
-                                    ['Male', 'Female', 'Other'],
-                                    profile.gender,
-                                    (gender) => setProfile(prev => ({ ...prev, gender: gender.toLowerCase() }))
-                                )}
-                            >
-                                <Text style={[{ color: profile.gender ? colors.text : colors.icon }]}>
-                                    {profile.gender ? profile.gender.charAt(0).toUpperCase() + profile.gender.slice(1) : 'Select Gender'}
-                                </Text>
-                            </TouchableOpacity>
-                        </View>
-
-                        <View style={[styles.inputContainer, { flex: 1, marginLeft: 10 }]}>
-                            <Text style={[styles.label, { color: colors.text }]}>Preference</Text>
-                            <TouchableOpacity
-                                style={[
-                                    styles.input,
-                                    {
-                                        backgroundColor: colors.surface,
-                                        borderColor: colors.border,
-                                        justifyContent: 'center',
-                                    },
-                                ]}
-                                onPress={() => showPicker(
-                                    'Select Preference',
-                                    ['Male', 'Female', 'Both'],
-                                    profile.preference,
-                                    (preference) => setProfile(prev => ({ ...prev, preference: preference.toLowerCase() }))
-                                )}
-                            >
-                                <Text style={[{ color: profile.preference ? colors.text : colors.icon }]}>
-                                    {profile.preference ? profile.preference.charAt(0).toUpperCase() + profile.preference.slice(1) : 'Select Preference'}
-                                </Text>
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-
-                    <View style={styles.inputContainer}>
-                        <Text style={[styles.label, { color: colors.text }]}>
-                            Interests (Select at least 3)
-                        </Text>
-                        <View style={styles.interestsContainer}>
-                            {interests.map(interest => (
-                                <TouchableOpacity
-                                    key={interest}
-                                    style={[
-                                        styles.interestTag,
-                                        {
-                                            backgroundColor: profile.selectedInterests.includes(interest)
-                                                ? colors.primary
-                                                : colors.surface,
-                                            borderColor: colors.border,
-                                        },
-                                    ]}
-                                    onPress={() => handleInterestToggle(interest)}
-                                >
-                                    <Text
-                                        style={[
-                                            styles.interestText,
-                                            {
-                                                color: profile.selectedInterests.includes(interest)
-                                                    ? 'white'
-                                                    : colors.text,
-                                            },
-                                        ]}
-                                    >
-                                        {interest}
-                                    </Text>
-                                </TouchableOpacity>
-                            ))}
-                        </View>
-                    </View>
-
-                    <TouchableOpacity
-                        style={[
-                            styles.saveButton,
-                            { backgroundColor: colors.primary },
-                            loading && styles.disabledButton,
-                        ]}
-                        onPress={handleSave}
-                        disabled={loading}
-                    >
-                        <Text style={styles.saveButtonText}>
-                            {loading ? 'Saving...' : 'Complete Setup'}
-                        </Text>
-                    </TouchableOpacity>
                 </View>
-            </View>
-        </ScrollView>
+
+                {/* Custom Modal Picker */}
+                <Modal
+                    visible={pickerVisible}
+                    transparent={true}
+                    animationType="slide"
+                    onRequestClose={() => setPickerVisible(false)}
+                >
+                    <View style={styles.modalOverlay}>
+                        <TouchableOpacity
+                            style={styles.modalBackdrop}
+                            activeOpacity={1}
+                            onPress={() => setPickerVisible(false)}
+                        />
+                        <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
+                            {/* Header */}
+                            <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+                                <Text style={[styles.modalTitle, { color: colors.text }]}>
+                                    {pickerData.title}
+                                </Text>
+                                <TouchableOpacity
+                                    onPress={() => setPickerVisible(false)}
+                                    style={styles.closeButton}
+                                >
+                                    <Ionicons name="close" size={24} color={colors.text} />
+                                </TouchableOpacity>
+                            </View>
+
+                            {/* Search for branches */}
+                            {pickerData.title.includes('Branch') && (
+                                <View style={[styles.searchContainer, { borderBottomColor: colors.border }]}>
+                                    <Ionicons name="search" size={20} color={colors.icon} style={styles.searchIcon} />
+                                    <TextInput
+                                        style={[styles.searchInput, {
+                                            backgroundColor: colors.surface,
+                                            color: colors.text,
+                                            borderColor: colors.border
+                                        }]}
+                                        placeholder="Search branches..."
+                                        placeholderTextColor={colors.icon}
+                                        value={searchQuery}
+                                        onChangeText={setSearchQuery}
+                                    />
+                                </View>
+                            )}
+
+                            {/* Debug Info */}
+                            <Text style={[{ color: colors.text, padding: 10, fontSize: 12 }]}>
+                                Options: {pickerData.options.length} items
+                            </Text>
+
+                            {/* Options List */}
+                            <FlatList
+                                data={pickerData.options.filter(option =>
+                                    option.toLowerCase().includes(searchQuery.toLowerCase())
+                                )}
+                                keyExtractor={(item, index) => index.toString()}
+                                style={styles.optionsList}
+                                showsVerticalScrollIndicator={true}
+                                renderItem={({ item }) => (
+                                    <TouchableOpacity
+                                        style={[
+                                            styles.optionItem,
+                                            {
+                                                backgroundColor: item === pickerData.currentValue
+                                                    ? colors.primary + '20'
+                                                    : 'transparent',
+                                                borderBottomColor: colors.border
+                                            }
+                                        ]}
+                                        onPress={() => handlePickerSelect(item)}
+                                    >
+                                        <Text style={[
+                                            styles.optionText,
+                                            {
+                                                color: item === pickerData.currentValue
+                                                    ? colors.primary
+                                                    : colors.text
+                                            }
+                                        ]}>
+                                            {item}
+                                        </Text>
+                                        {item === pickerData.currentValue && (
+                                            <Ionicons name="checkmark" size={20} color={colors.primary} />
+                                        )}
+                                    </TouchableOpacity>
+                                )}
+                            />
+                        </View>
+                    </View>
+                </Modal>
+            </ScrollView>
+        </SafeAreaView>
     );
 }
 
@@ -409,9 +814,15 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
         paddingBottom: 30,
     },
+    navHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingVertical: 15,
+    },
     header: {
         alignItems: 'center',
-        marginTop: 20,
+        marginTop: 10,
         marginBottom: 30,
     },
     emoji: {
@@ -512,6 +923,16 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
     },
+    setMainButton: {
+        position: 'absolute',
+        top: -8,
+        left: -8,
+        width: 24,
+        height: 24,
+        borderRadius: 12,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
     mainPhotoBadge: {
         position: 'absolute',
         bottom: 4,
@@ -538,5 +959,78 @@ const styles = StyleSheet.create({
         fontSize: 12,
         marginTop: 4,
         textAlign: 'center',
+    },
+    // Modal Picker Styles
+    modalOverlay: {
+        flex: 1,
+        justifyContent: 'flex-end',
+    },
+    modalBackdrop: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    },
+    modalContent: {
+        borderTopLeftRadius: 20,
+        borderTopRightRadius: 20,
+        minHeight: '50%',
+        maxHeight: '80%',
+        paddingBottom: 20,
+        shadowColor: '#000',
+        shadowOffset: {
+            width: 0,
+            height: -2,
+        },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
+        elevation: 5,
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: 20,
+        borderBottomWidth: 1,
+    },
+    modalTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+    },
+    closeButton: {
+        padding: 5,
+    },
+    optionsList: {
+        maxHeight: 350,
+        minHeight: 150,
+        flex: 0,
+    },
+    optionItem: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingVertical: 15,
+        paddingHorizontal: 20,
+        borderBottomWidth: 1,
+    },
+    optionText: {
+        fontSize: 16,
+        flex: 1,
+    },
+    searchContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+        paddingVertical: 10,
+        borderBottomWidth: 1,
+    },
+    searchIcon: {
+        marginRight: 10,
+    },
+    searchInput: {
+        flex: 1,
+        paddingVertical: 10,
+        paddingHorizontal: 15,
+        borderRadius: 8,
+        borderWidth: 1,
+        fontSize: 16,
     },
 });

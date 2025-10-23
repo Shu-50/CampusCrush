@@ -10,6 +10,7 @@ import {
     Platform,
     ScrollView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useColorScheme } from 'react-native';
 import { Colors } from '../../constants/Colors';
@@ -82,123 +83,125 @@ export default function SignupScreen() {
     };
 
     return (
-        <KeyboardAvoidingView
-            style={[styles.container, { backgroundColor: colors.background }]}
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        >
-            <ScrollView contentContainerStyle={styles.scrollContainer}>
-                <View style={styles.header}>
-                    <Text style={styles.emoji}>💕</Text>
-                    <Text style={[styles.title, { color: colors.text }]}>Join Campus Crush</Text>
-                    <Text style={[styles.subtitle, { color: colors.icon }]}>
-                        Create your account to get started
-                    </Text>
-                </View>
-
-                <View style={styles.form}>
-                    <View style={styles.inputContainer}>
-                        <Text style={[styles.label, { color: colors.text }]}>Full Name</Text>
-                        <TextInput
-                            style={[
-                                styles.input,
-                                {
-                                    backgroundColor: colors.surface,
-                                    borderColor: colors.border,
-                                    color: colors.text,
-                                },
-                            ]}
-                            placeholder="Enter your full name"
-                            placeholderTextColor={colors.icon}
-                            value={formData.name}
-                            onChangeText={(value) => handleInputChange('name', value)}
-                        />
-                    </View>
-
-                    <View style={styles.inputContainer}>
-                        <Text style={[styles.label, { color: colors.text }]}>College Email</Text>
-                        <TextInput
-                            style={[
-                                styles.input,
-                                {
-                                    backgroundColor: colors.surface,
-                                    borderColor: colors.border,
-                                    color: colors.text,
-                                },
-                            ]}
-                            placeholder="your.email@college.edu"
-                            placeholderTextColor={colors.icon}
-                            value={formData.email}
-                            onChangeText={(value) => handleInputChange('email', value)}
-                            keyboardType="email-address"
-                            autoCapitalize="none"
-                        />
-                    </View>
-
-                    <View style={styles.inputContainer}>
-                        <Text style={[styles.label, { color: colors.text }]}>Password</Text>
-                        <TextInput
-                            style={[
-                                styles.input,
-                                {
-                                    backgroundColor: colors.surface,
-                                    borderColor: colors.border,
-                                    color: colors.text,
-                                },
-                            ]}
-                            placeholder="Create a password"
-                            placeholderTextColor={colors.icon}
-                            value={formData.password}
-                            onChangeText={(value) => handleInputChange('password', value)}
-                            secureTextEntry
-                        />
-                    </View>
-
-                    <View style={styles.inputContainer}>
-                        <Text style={[styles.label, { color: colors.text }]}>Confirm Password</Text>
-                        <TextInput
-                            style={[
-                                styles.input,
-                                {
-                                    backgroundColor: colors.surface,
-                                    borderColor: colors.border,
-                                    color: colors.text,
-                                },
-                            ]}
-                            placeholder="Confirm your password"
-                            placeholderTextColor={colors.icon}
-                            value={formData.confirmPassword}
-                            onChangeText={(value) => handleInputChange('confirmPassword', value)}
-                            secureTextEntry
-                        />
-                    </View>
-
-                    <TouchableOpacity
-                        style={[
-                            styles.signupButton,
-                            { backgroundColor: colors.primary },
-                            loading && styles.disabledButton,
-                        ]}
-                        onPress={handleSignup}
-                        disabled={loading}
-                    >
-                        <Text style={styles.signupButtonText}>
-                            {loading ? 'Creating Account...' : 'Create Account'}
+        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+            <KeyboardAvoidingView
+                style={{ flex: 1 }}
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            >
+                <ScrollView contentContainerStyle={styles.scrollContainer}>
+                    <View style={styles.header}>
+                        <Text style={styles.emoji}>💕</Text>
+                        <Text style={[styles.title, { color: colors.text }]}>Join Campus Crush</Text>
+                        <Text style={[styles.subtitle, { color: colors.icon }]}>
+                            Create your account to get started
                         </Text>
-                    </TouchableOpacity>
+                    </View>
 
-                    <View style={styles.loginContainer}>
-                        <Text style={[styles.loginText, { color: colors.icon }]}>
-                            Already have an account?{' '}
-                        </Text>
-                        <TouchableOpacity onPress={() => router.push('/auth/login')}>
-                            <Text style={[styles.loginLink, { color: colors.primary }]}>
-                                Sign In
+                    <View style={styles.form}>
+                        <View style={styles.inputContainer}>
+                            <Text style={[styles.label, { color: colors.text }]}>Full Name</Text>
+                            <TextInput
+                                style={[
+                                    styles.input,
+                                    {
+                                        backgroundColor: colors.surface,
+                                        borderColor: colors.border,
+                                        color: colors.text,
+                                    },
+                                ]}
+                                placeholder="Enter your full name"
+                                placeholderTextColor={colors.icon}
+                                value={formData.name}
+                                onChangeText={(value) => handleInputChange('name', value)}
+                            />
+                        </View>
+
+                        <View style={styles.inputContainer}>
+                            <Text style={[styles.label, { color: colors.text }]}>College Email</Text>
+                            <TextInput
+                                style={[
+                                    styles.input,
+                                    {
+                                        backgroundColor: colors.surface,
+                                        borderColor: colors.border,
+                                        color: colors.text,
+                                    },
+                                ]}
+                                placeholder="your.email@college.edu"
+                                placeholderTextColor={colors.icon}
+                                value={formData.email}
+                                onChangeText={(value) => handleInputChange('email', value)}
+                                keyboardType="email-address"
+                                autoCapitalize="none"
+                            />
+                        </View>
+
+                        <View style={styles.inputContainer}>
+                            <Text style={[styles.label, { color: colors.text }]}>Password</Text>
+                            <TextInput
+                                style={[
+                                    styles.input,
+                                    {
+                                        backgroundColor: colors.surface,
+                                        borderColor: colors.border,
+                                        color: colors.text,
+                                    },
+                                ]}
+                                placeholder="Create a password"
+                                placeholderTextColor={colors.icon}
+                                value={formData.password}
+                                onChangeText={(value) => handleInputChange('password', value)}
+                                secureTextEntry
+                            />
+                        </View>
+
+                        <View style={styles.inputContainer}>
+                            <Text style={[styles.label, { color: colors.text }]}>Confirm Password</Text>
+                            <TextInput
+                                style={[
+                                    styles.input,
+                                    {
+                                        backgroundColor: colors.surface,
+                                        borderColor: colors.border,
+                                        color: colors.text,
+                                    },
+                                ]}
+                                placeholder="Confirm your password"
+                                placeholderTextColor={colors.icon}
+                                value={formData.confirmPassword}
+                                onChangeText={(value) => handleInputChange('confirmPassword', value)}
+                                secureTextEntry
+                            />
+                        </View>
+
+                        <TouchableOpacity
+                            style={[
+                                styles.signupButton,
+                                { backgroundColor: colors.primary },
+                                loading && styles.disabledButton,
+                            ]}
+                            onPress={handleSignup}
+                            disabled={loading}
+                        >
+                            <Text style={styles.signupButtonText}>
+                                {loading ? 'Creating Account...' : 'Create Account'}
                             </Text>
                         </TouchableOpacity>
+
+                        <View style={styles.loginContainer}>
+                            <Text style={[styles.loginText, { color: colors.icon }]}>
+                                Already have an account?{' '}
+                            </Text>
+                            <TouchableOpacity onPress={() => router.push('/auth/login')}>
+                                <Text style={[styles.loginLink, { color: colors.primary }]}>
+                                    Sign In
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
                     </View>
-                </View>
-            </ScrollView>
-        </KeyboardAvoidingView>
+                </ScrollView>
+            </KeyboardAvoidingView>
+        </SafeAreaView>
     );
 }
 

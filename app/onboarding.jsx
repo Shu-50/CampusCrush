@@ -8,6 +8,7 @@ import {
     FlatList,
     Image,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useColorScheme } from 'react-native';
 import { Colors } from '../constants/Colors';
@@ -66,7 +67,7 @@ export default function OnboardingScreen() {
     };
 
     return (
-        <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
             <TouchableOpacity style={styles.skipButton} onPress={handleSkip}>
                 <Text style={[styles.skipText, { color: colors.primary }]}>Skip</Text>
             </TouchableOpacity>
@@ -109,7 +110,7 @@ export default function OnboardingScreen() {
                     </Text>
                 </TouchableOpacity>
             </View>
-        </View>
+        </SafeAreaView>
     );
 }
 

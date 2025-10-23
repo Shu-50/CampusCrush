@@ -10,6 +10,7 @@ import {
     Platform,
     ScrollView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useColorScheme } from 'react-native';
 import { Colors } from '../../constants/Colors';
@@ -53,95 +54,97 @@ export default function LoginScreen() {
     };
 
     return (
-        <KeyboardAvoidingView
-            style={[styles.container, { backgroundColor: colors.background }]}
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        >
-            <ScrollView contentContainerStyle={styles.scrollContainer}>
-                <View style={styles.header}>
-                    <Text style={styles.emoji}>💕</Text>
-                    <Text style={[styles.title, { color: colors.text }]}>Welcome Back</Text>
-                    <Text style={[styles.subtitle, { color: colors.icon }]}>
-                        Sign in to your account
-                    </Text>
-                </View>
-
-                <View style={styles.form}>
-                    <View style={styles.inputContainer}>
-                        <Text style={[styles.label, { color: colors.text }]}>College Email</Text>
-                        <TextInput
-                            style={[
-                                styles.input,
-                                {
-                                    backgroundColor: colors.surface,
-                                    borderColor: colors.border,
-                                    color: colors.text,
-                                },
-                            ]}
-                            placeholder="your.email@college.edu"
-                            placeholderTextColor={colors.icon}
-                            value={email}
-                            onChangeText={setEmail}
-                            keyboardType="email-address"
-                            autoCapitalize="none"
-                        />
+        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+            <KeyboardAvoidingView
+                style={{ flex: 1 }}
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            >
+                <ScrollView contentContainerStyle={styles.scrollContainer}>
+                    <View style={styles.header}>
+                        <Text style={styles.emoji}>💕</Text>
+                        <Text style={[styles.title, { color: colors.text }]}>Welcome Back</Text>
+                        <Text style={[styles.subtitle, { color: colors.icon }]}>
+                            Sign in to your account
+                        </Text>
                     </View>
 
-                    <View style={styles.inputContainer}>
-                        <Text style={[styles.label, { color: colors.text }]}>Password</Text>
-                        <TextInput
-                            style={[
-                                styles.input,
-                                {
-                                    backgroundColor: colors.surface,
-                                    borderColor: colors.border,
-                                    color: colors.text,
-                                },
-                            ]}
-                            placeholder="Enter your password"
-                            placeholderTextColor={colors.icon}
-                            value={password}
-                            onChangeText={setPassword}
-                            secureTextEntry
-                        />
-                    </View>
+                    <View style={styles.form}>
+                        <View style={styles.inputContainer}>
+                            <Text style={[styles.label, { color: colors.text }]}>College Email</Text>
+                            <TextInput
+                                style={[
+                                    styles.input,
+                                    {
+                                        backgroundColor: colors.surface,
+                                        borderColor: colors.border,
+                                        color: colors.text,
+                                    },
+                                ]}
+                                placeholder="your.email@college.edu"
+                                placeholderTextColor={colors.icon}
+                                value={email}
+                                onChangeText={setEmail}
+                                keyboardType="email-address"
+                                autoCapitalize="none"
+                            />
+                        </View>
 
-                    <TouchableOpacity
-                        style={styles.forgotPassword}
-                        onPress={() => router.push('/auth/forgot-password')}
-                    >
-                        <Text style={[styles.forgotPasswordText, { color: colors.primary }]}>
-                            Forgot Password?
-                        </Text>
-                    </TouchableOpacity>
+                        <View style={styles.inputContainer}>
+                            <Text style={[styles.label, { color: colors.text }]}>Password</Text>
+                            <TextInput
+                                style={[
+                                    styles.input,
+                                    {
+                                        backgroundColor: colors.surface,
+                                        borderColor: colors.border,
+                                        color: colors.text,
+                                    },
+                                ]}
+                                placeholder="Enter your password"
+                                placeholderTextColor={colors.icon}
+                                value={password}
+                                onChangeText={setPassword}
+                                secureTextEntry
+                            />
+                        </View>
 
-                    <TouchableOpacity
-                        style={[
-                            styles.loginButton,
-                            { backgroundColor: colors.primary },
-                            loading && styles.disabledButton,
-                        ]}
-                        onPress={handleLogin}
-                        disabled={loading}
-                    >
-                        <Text style={styles.loginButtonText}>
-                            {loading ? 'Signing In...' : 'Sign In'}
-                        </Text>
-                    </TouchableOpacity>
-
-                    <View style={styles.signupContainer}>
-                        <Text style={[styles.signupText, { color: colors.icon }]}>
-                            Don't have an account?{' '}
-                        </Text>
-                        <TouchableOpacity onPress={() => router.push('/auth/signup')}>
-                            <Text style={[styles.signupLink, { color: colors.primary }]}>
-                                Sign Up
+                        <TouchableOpacity
+                            style={styles.forgotPassword}
+                            onPress={() => router.push('/auth/forgot-password')}
+                        >
+                            <Text style={[styles.forgotPasswordText, { color: colors.primary }]}>
+                                Forgot Password?
                             </Text>
                         </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={[
+                                styles.loginButton,
+                                { backgroundColor: colors.primary },
+                                loading && styles.disabledButton,
+                            ]}
+                            onPress={handleLogin}
+                            disabled={loading}
+                        >
+                            <Text style={styles.loginButtonText}>
+                                {loading ? 'Signing In...' : 'Sign In'}
+                            </Text>
+                        </TouchableOpacity>
+
+                        <View style={styles.signupContainer}>
+                            <Text style={[styles.signupText, { color: colors.icon }]}>
+                                Don't have an account?{' '}
+                            </Text>
+                            <TouchableOpacity onPress={() => router.push('/auth/signup')}>
+                                <Text style={[styles.signupLink, { color: colors.primary }]}>
+                                    Sign Up
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
                     </View>
-                </View>
-            </ScrollView>
-        </KeyboardAvoidingView>
+                </ScrollView>
+            </KeyboardAvoidingView>
+        </SafeAreaView>
     );
 }
 

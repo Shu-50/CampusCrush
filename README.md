@@ -78,7 +78,7 @@ A React Native dating app built with Expo, designed exclusively for college stud
 
 2. **Install Dependencies**
    ```bash
-   cd Date
+   cd campusCrush
    npm install
    ```
 
@@ -97,7 +97,7 @@ A React Native dating app built with Expo, designed exclusively for college stud
 ## Project Structure
 
 ```
-Date/
+campusCrush/
 ├── app/                    # App screens and navigation
 │   ├── (tabs)/            # Tab-based screens
 │   │   ├── confessions.jsx

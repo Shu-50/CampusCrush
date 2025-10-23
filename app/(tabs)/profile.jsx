@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     View,
     Text,
@@ -6,19 +6,67 @@ import {
     ScrollView,
     TouchableOpacity,
     Image,
-    Switch,
     Alert,
+    Modal,
+    Dimensions,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useColorScheme } from 'react-native';
 import { Colors } from '../../constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
 
+import { useFocusEffect } from '@react-navigation/native';
+import ApiService from '../../services/api';
+
+// Branch mapping for display
+const branchMapping = {
+    'CSE': 'CSE (Computer Science Engineering)',
+    'IT': 'IT (Information Technology)',
+    'SE': 'SE (Software Engineering)',
+    'EE': 'EE (Electrical Engineering)',
+    'ECE': 'ECE (Electronics & Communication)',
+    'ENTC': 'ENTC (Electronics & Telecommunication)',
+    'ME': 'ME (Mechanical Engineering)',
+    'CE': 'CE (Civil Engineering)',
+    'CHE': 'CHE (Chemical Engineering)',
+    'BME': 'BME (Biomedical Engineering)',
+    'AE': 'AE (Aerospace Engineering)',
+    'AIDS': 'AIDS (AI & Data Science)',
+    'ML': 'ML (Machine Learning)',
+    'AI': 'AI (Artificial Intelligence)',
+    'DS': 'DS (Data Science)',
+    'CYBER': 'CYBER (Cyber Security)',
+    'IOT': 'IOT (Internet of Things)',
+    'ROBOTICS': 'ROBOTICS (Robotics Engineering)',
+    'MBA': 'MBA (Master of Business Administration)',
+    'BBA': 'BBA (Bachelor of Business Administration)',
+    'MKTG': 'MKTG (Marketing)',
+    'FIN': 'FIN (Finance)',
+    'ACC': 'ACC (Accounting)',
+    'ECON': 'ECON (Economics)',
+    'BIO': 'BIO (Biology)',
+    'CHEM': 'CHEM (Chemistry)',
+    'PHY': 'PHY (Physics)',
+    'MATH': 'MATH (Mathematics)',
+    'STAT': 'STAT (Statistics)',
+    'PSYCH': 'PSYCH (Psychology)'
+};
+
+// Year mapping for display
+const yearMapping = {
+    '1st': '1st Year',
+    '2nd': '2nd Year',
+    '3rd': '3rd Year',
+    'Final': 'Final Year'
+};
+
 const mockUser = {
     name: 'John Doe',
     age: 20,
-    year: 'Junior',
-    branch: 'Computer Science',
+    year: '3rd',
+    branch: 'CSE',
     bio: 'Love coding, coffee, and cats! Looking for someone to explore the city with 🌟',
     interests: ['Programming', 'Coffee', 'Travel', 'Photography', 'Music', 'Gaming'],
     photos: [
@@ -35,212 +83,521 @@ export default function ProfileScreen() {
     const colorScheme = useColorScheme();
     const colors = Colors[colorScheme ?? 'light'];
 
-    const [user, setUser] = useState(mockUser);
-    const [darkMode, setDarkMode] = useState(colorScheme === 'dark');
-    const [notifications, setNotifications] = useState(true);
-    const [showOnline, setShowOnline] = useState(true);
 
-    const handleLogout = () => {
+    const [user, setUser] = useState(mockUser);
+    const [loading, setLoading] = useState(true);
+    const [selectedPhoto, setSelectedPhoto] = useState(null);
+    const [photoModalVisible, setPhotoModalVisible] = useState(false);
+    const [addPhotoModalVisible, setAddPhotoModalVisible] = useState(false);
+
+    useEffect(() => {
+        loadUserProfile();
+    }, []);
+
+    // Refresh profile when tab is focused
+    useFocusEffect(
+        React.useCallback(() => {
+            loadUserProfile();
+        }, [])
+    );
+
+    const loadUserProfile = async () => {
+        try {
+            const response = await ApiService.getCurrentUser();
+            if (response.success) {
+                setUser({
+                    ...response.data.user,
+                    photos: response.data.user.photos?.length > 0 ? response.data.user.photos.map(p => p.url || p) : mockUser.photos,
+                    interests: response.data.user.interests || mockUser.interests,
+                    isVerified: true,
+                    year: response.data.user.year || null,
+                    branch: response.data.user.branch || null,
+                    gender: response.data.user.gender || null,
+                    lookingFor: response.data.user.lookingFor || null,
+                    preference: response.data.user.preference || null
+                });
+            }
+        } catch (error) {
+            console.error('Error loading profile:', error);
+            // Keep using mock data if API fails
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleAddPhoto = async () => {
+        try {
+            // Request permission
+            const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+            if (permissionResult.granted === false) {
+                Alert.alert('Permission Required', 'Please allow access to your photo library to upload photos.');
+                return;
+            }
+
+            // Show custom modal
+            setAddPhotoModalVisible(true);
+        } catch (error) {
+            console.error('Error requesting permission:', error);
+            Alert.alert('Error', 'Failed to access photo library');
+        }
+    };
+
+    const handleCameraOption = () => {
+        setAddPhotoModalVisible(false);
+        openCamera();
+    };
+
+    const handleLibraryOption = () => {
+        setAddPhotoModalVisible(false);
+        openImagePicker();
+    };
+
+    const closeAddPhotoModal = () => {
+        setAddPhotoModalVisible(false);
+    };
+
+    const openCamera = async () => {
+        try {
+            const cameraPermission = await ImagePicker.requestCameraPermissionsAsync();
+
+            if (cameraPermission.granted === false) {
+                Alert.alert('Permission Required', 'Please allow camera access to take photos.');
+                return;
+            }
+
+            const result = await ImagePicker.launchCameraAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                allowsEditing: true,
+                aspect: [1, 1],
+                quality: 0.8,
+            });
+
+            if (!result.canceled && result.assets[0]) {
+                await uploadPhoto(result.assets[0].uri);
+            }
+        } catch (error) {
+            console.error('Error opening camera:', error);
+            Alert.alert('Error', 'Failed to open camera');
+        }
+    };
+
+    const openImagePicker = async () => {
+        try {
+            const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                allowsEditing: true,
+                aspect: [1, 1],
+                quality: 0.8,
+            });
+
+            if (!result.canceled && result.assets[0]) {
+                await uploadPhoto(result.assets[0].uri);
+            }
+        } catch (error) {
+            console.error('Error opening image picker:', error);
+            Alert.alert('Error', 'Failed to open photo library');
+        }
+    };
+
+    const uploadPhoto = async (imageUri) => {
+        try {
+            setLoading(true);
+            const response = await ApiService.uploadPhoto(imageUri);
+
+            if (response.success) {
+                // Refresh profile to get updated photos
+                await loadUserProfile();
+                Alert.alert('Success', 'Photo uploaded successfully!');
+            } else {
+                Alert.alert('Error', response.message || 'Failed to upload photo');
+            }
+        } catch (error) {
+            console.error('Error uploading photo:', error);
+            Alert.alert('Error', 'Failed to upload photo. Please try again.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handlePhotoPress = (photo, index) => {
+        setSelectedPhoto({ photo, index });
+        setPhotoModalVisible(true);
+    };
+
+    const handleDeletePhoto = async () => {
+        if (!selectedPhoto) return;
+
         Alert.alert(
-            'Logout',
-            'Are you sure you want to logout?',
+            'Delete Photo',
+            'Are you sure you want to delete this photo? This action cannot be undone.',
             [
                 { text: 'Cancel', style: 'cancel' },
                 {
-                    text: 'Logout',
+                    text: 'Delete',
                     style: 'destructive',
-                    onPress: () => router.replace('/auth'),
+                    onPress: async () => {
+                        await deletePhoto();
+                    },
                 },
             ]
         );
     };
 
-    const renderSettingItem = (icon, title, subtitle, onPress, rightComponent) => (
-        <TouchableOpacity
-            style={[styles.settingItem, { backgroundColor: colors.card, borderColor: colors.border }]}
-            onPress={onPress}
-        >
-            <View style={styles.settingLeft}>
-                <View style={[styles.settingIcon, { backgroundColor: colors.surface }]}>
-                    <Ionicons name={icon} size={20} color={colors.primary} />
-                </View>
-                <View style={styles.settingText}>
-                    <Text style={[styles.settingTitle, { color: colors.text }]}>{title}</Text>
-                    {subtitle && (
-                        <Text style={[styles.settingSubtitle, { color: colors.icon }]}>{subtitle}</Text>
-                    )}
-                </View>
-            </View>
-            {rightComponent || (
-                <Ionicons name="chevron-forward" size={20} color={colors.icon} />
-            )}
-        </TouchableOpacity>
-    );
+    const deletePhoto = async () => {
+        try {
+            setLoading(true);
+            setPhotoModalVisible(false);
+
+            // Extract publicId from photo URL or use the photo object
+            let publicId = null;
+            const photo = selectedPhoto.photo;
+
+            if (photo.publicId) {
+                publicId = photo.publicId;
+            } else if (typeof photo === 'string') {
+                // If it's a URL, try to extract publicId from it
+                // This is a fallback for mock data or URLs
+                console.log('Photo is a URL, cannot delete from cloud:', photo);
+                Alert.alert('Error', 'Cannot delete this photo. Please try refreshing your profile.');
+                return;
+            } else if (photo.url) {
+                // Try to extract from URL structure if available
+                const urlParts = photo.url.split('/');
+                const filename = urlParts[urlParts.length - 1];
+                publicId = filename.split('.')[0]; // Remove extension
+            }
+
+            if (!publicId) {
+                Alert.alert('Error', 'Cannot identify photo for deletion.');
+                return;
+            }
+
+            const response = await ApiService.deletePhoto(publicId);
+
+            if (response.success) {
+                // Refresh profile to get updated photos
+                await loadUserProfile();
+                Alert.alert('Success', 'Photo deleted successfully!');
+            } else {
+                Alert.alert('Error', response.message || 'Failed to delete photo');
+            }
+        } catch (error) {
+            console.error('Error deleting photo:', error);
+            Alert.alert('Error', 'Failed to delete photo. Please try again.');
+        } finally {
+            setLoading(false);
+            setSelectedPhoto(null);
+        }
+    };
+
+    const closePhotoModal = () => {
+        setPhotoModalVisible(false);
+        setSelectedPhoto(null);
+    };
+
+    const handleEditMainPhoto = async () => {
+        setPhotoModalVisible(false);
+        // Use the same photo upload flow as adding new photos
+        await handleAddPhoto();
+    };
+
+    const handleSetAsMain = async () => {
+        if (!selectedPhoto || selectedPhoto.index === 0) return;
+
+        try {
+            setLoading(true);
+            setPhotoModalVisible(false);
+
+            const photo = selectedPhoto.photo;
+            let publicId = null;
+
+            if (photo.publicId) {
+                publicId = photo.publicId;
+            } else if (photo.url) {
+                // Try to extract from URL structure if available
+                const urlParts = photo.url.split('/');
+                const filename = urlParts[urlParts.length - 1];
+                publicId = filename.split('.')[0]; // Remove extension
+            }
+
+            if (!publicId) {
+                Alert.alert('Error', 'Cannot identify photo for setting as main.');
+                return;
+            }
+
+            const response = await ApiService.setMainPhoto(publicId);
+
+            if (response.success) {
+                // Refresh profile to get updated photos
+                await loadUserProfile();
+                Alert.alert('Success', 'Main photo updated successfully!');
+            } else {
+                Alert.alert('Error', response.message || 'Failed to set as main photo');
+            }
+        } catch (error) {
+            console.error('Error setting main photo:', error);
+            Alert.alert('Error', 'Failed to set as main photo. Please try again.');
+        } finally {
+            setLoading(false);
+            setSelectedPhoto(null);
+        }
+    };
 
     return (
-        <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
-            <View style={styles.header}>
-                <Text style={[styles.title, { color: colors.text }]}>Profile</Text>
-                <TouchableOpacity onPress={() => router.push('/profile-setup')}>
-                    <Text style={[styles.editButton, { color: colors.primary }]}>Edit</Text>
-                </TouchableOpacity>
-            </View>
+        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+            <ScrollView style={{ flex: 1 }}>
+                <View style={styles.header}>
+                    <Text style={[styles.title, { color: colors.text }]}>Profile</Text>
+                    <View style={styles.headerButtons}>
+                        <TouchableOpacity
+                            style={styles.headerButton}
+                            onPress={() => router.push('/profile-setup')}
+                        >
+                            <Ionicons name="create-outline" size={24} color={colors.text} />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={styles.headerButton}
+                            onPress={() => router.push('/settings')}
+                        >
+                            <Ionicons name="settings-outline" size={24} color={colors.text} />
+                        </TouchableOpacity>
+                    </View>
+                </View>
 
-            {/* Profile Card */}
-            <View style={[styles.profileCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <View style={styles.profileHeader}>
-                    <Image source={{ uri: user.photos[0] }} style={styles.profileImage} />
-                    <View style={styles.profileInfo}>
-                        <View style={styles.nameContainer}>
-                            <Text style={[styles.profileName, { color: colors.text }]}>
-                                {user.name}, {user.age}
+                {/* Profile Card */}
+                <View style={[styles.profileCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                    <View style={styles.profileHeader}>
+                        <TouchableOpacity onPress={() => handlePhotoPress(user.photos[0], 0)}>
+                            <View style={styles.mainPhotoContainer}>
+                                <Image source={{ uri: user.photos[0] }} style={styles.profileImage} />
+                                <View style={[styles.mainPhotoBadge, { backgroundColor: colors.primary }]}>
+                                    <Ionicons name="star" size={12} color="white" />
+                                </View>
+                            </View>
+                        </TouchableOpacity>
+                        <View style={styles.profileInfo}>
+                            <View style={styles.nameContainer}>
+                                <Text style={[styles.profileName, { color: colors.text }]}>
+                                    {user.name}, {user.age}
+                                </Text>
+                                {user.isVerified && (
+                                    <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
+                                )}
+                            </View>
+                            <Text style={[styles.profileDetails, { color: colors.icon }]}>
+                                {user.year ? (yearMapping[user.year] || user.year) : 'Year not set'} • {user.branch ? (branchMapping[user.branch] || user.branch) : 'Branch not set'}
                             </Text>
-                            {user.isVerified && (
-                                <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
+                            <Text style={[styles.profileCollege, { color: colors.icon }]}>
+                                📍 {user.college}
+                            </Text>
+                        </View>
+                    </View>
+
+                    {/* Profile Details Section */}
+                    <View style={styles.profileDetailsSection}>
+                        {user.gender && (
+                            <View style={styles.detailItem}>
+                                <Ionicons name="person" size={16} color={colors.primary} />
+                                <Text style={[styles.detailText, { color: colors.text }]}>
+                                    {user.gender}
+                                </Text>
+                            </View>
+                        )}
+                        {user.lookingFor && (
+                            <View style={styles.detailItem}>
+                                <Ionicons name="heart" size={16} color={colors.primary} />
+                                <Text style={[styles.detailText, { color: colors.text }]}>
+                                    Looking for {user.lookingFor.toLowerCase()}
+                                </Text>
+                            </View>
+                        )}
+                        {user.preference && (
+                            <View style={styles.detailItem}>
+                                <Ionicons name="people" size={16} color={colors.primary} />
+                                <Text style={[styles.detailText, { color: colors.text }]}>
+                                    Interested in {user.preference.toLowerCase()}
+                                </Text>
+                            </View>
+                        )}
+                    </View>
+
+                    {user.bio && (
+                        <Text style={[styles.profileBio, { color: colors.text }]}>{user.bio}</Text>
+                    )}
+
+                    {user.interests && user.interests.length > 0 && (
+                        <View style={styles.interests}>
+                            {user.interests.map((interest, index) => (
+                                <View key={index} style={[styles.interestTag, { backgroundColor: colors.surface }]}>
+                                    <Text style={[styles.interestText, { color: colors.text }]}>{interest}</Text>
+                                </View>
+                            ))}
+                        </View>
+                    )}
+
+                    {/* Photos Grid - Always show if there are additional photos or if we want to show add button */}
+                    {((user.photos && user.photos.length > 1) || (!user.photos || user.photos.length < 6)) && (
+                        <View style={styles.photosGrid}>
+                            {/* Existing Photos (excluding main photo) */}
+                            {user.photos && user.photos.length > 1 && user.photos.slice(1).map((photo, index) => (
+                                <TouchableOpacity
+                                    key={index}
+                                    style={styles.photoContainer}
+                                    onPress={() => handlePhotoPress(photo, index + 1)}
+                                >
+                                    <Image
+                                        source={{ uri: photo.url || photo }}
+                                        style={styles.photoThumbnail}
+                                    />
+                                </TouchableOpacity>
+                            ))}
+
+                            {/* Add Photo Button */}
+                            {(!user.photos || user.photos.length < 6) && (
+                                <TouchableOpacity
+                                    style={[styles.photoContainer, styles.addPhotoContainer]}
+                                    onPress={handleAddPhoto}
+                                >
+                                    <View style={[styles.addPhotoButton, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                                        <Ionicons name="add" size={32} color={colors.icon} />
+                                    </View>
+                                </TouchableOpacity>
                             )}
                         </View>
-                        <Text style={[styles.profileDetails, { color: colors.icon }]}>
-                            {user.year} • {user.branch}
-                        </Text>
-                        <Text style={[styles.profileCollege, { color: colors.icon }]}>
-                            {user.college}
-                        </Text>
-                    </View>
+                    )}
                 </View>
 
-                <Text style={[styles.profileBio, { color: colors.text }]}>{user.bio}</Text>
 
-                <View style={styles.interests}>
-                    {user.interests.map((interest, index) => (
-                        <View key={index} style={[styles.interestTag, { backgroundColor: colors.surface }]}>
-                            <Text style={[styles.interestText, { color: colors.text }]}>{interest}</Text>
-                        </View>
-                    ))}
-                </View>
 
-                <View style={styles.photos}>
-                    {user.photos.map((photo, index) => (
-                        <Image key={index} source={{ uri: photo }} style={styles.photoThumbnail} />
-                    ))}
-                </View>
-            </View>
+                {/* Bottom spacing */}
+                <View style={{ height: 40 }} />
+            </ScrollView>
 
-            {/* Settings */}
-            <View style={styles.section}>
-                <Text style={[styles.sectionTitle, { color: colors.text }]}>Preferences</Text>
-
-                {renderSettingItem(
-                    'moon',
-                    'Dark Mode',
-                    'Switch between light and dark theme',
-                    () => setDarkMode(!darkMode),
-                    <Switch
-                        value={darkMode}
-                        onValueChange={setDarkMode}
-                        trackColor={{ false: colors.border, true: colors.primary }}
-                        thumbColor={darkMode ? 'white' : colors.icon}
-                    />
-                )}
-
-                {renderSettingItem(
-                    'notifications',
-                    'Push Notifications',
-                    'Get notified about matches and messages',
-                    () => setNotifications(!notifications),
-                    <Switch
-                        value={notifications}
-                        onValueChange={setNotifications}
-                        trackColor={{ false: colors.border, true: colors.primary }}
-                        thumbColor={notifications ? 'white' : colors.icon}
-                    />
-                )}
-
-                {renderSettingItem(
-                    'eye',
-                    'Show Online Status',
-                    'Let others see when you\'re online',
-                    () => setShowOnline(!showOnline),
-                    <Switch
-                        value={showOnline}
-                        onValueChange={setShowOnline}
-                        trackColor={{ false: colors.border, true: colors.primary }}
-                        thumbColor={showOnline ? 'white' : colors.icon}
-                    />
-                )}
-            </View>
-
-            <View style={styles.section}>
-                <Text style={[styles.sectionTitle, { color: colors.text }]}>Account</Text>
-
-                {renderSettingItem(
-                    'person-circle',
-                    'Edit Profile',
-                    'Update your photos and information'
-                )}
-
-                {renderSettingItem(
-                    'shield-checkmark',
-                    'Privacy Settings',
-                    'Control who can see your profile'
-                )}
-
-                {renderSettingItem(
-                    'heart',
-                    'Who Liked You',
-                    'See who swiped right on you',
-                    null,
-                    <View style={[styles.premiumBadge, { backgroundColor: colors.warning }]}>
-                        <Text style={styles.premiumText}>Premium</Text>
-                    </View>
-                )}
-
-                {renderSettingItem(
-                    'star',
-                    'Boost Profile',
-                    'Get more visibility for 30 minutes',
-                    null,
-                    <View style={[styles.premiumBadge, { backgroundColor: colors.warning }]}>
-                        <Text style={styles.premiumText}>Premium</Text>
-                    </View>
-                )}
-            </View>
-
-            <View style={styles.section}>
-                <Text style={[styles.sectionTitle, { color: colors.text }]}>Support</Text>
-
-                {renderSettingItem(
-                    'help-circle',
-                    'Help & Support',
-                    'Get help with your account'
-                )}
-
-                {renderSettingItem(
-                    'document-text',
-                    'Terms & Privacy',
-                    'Read our terms and privacy policy'
-                )}
-
-                {renderSettingItem(
-                    'flag',
-                    'Report a Problem',
-                    'Let us know about any issues'
-                )}
-            </View>
-
-            <TouchableOpacity
-                style={[styles.logoutButton, { backgroundColor: colors.error }]}
-                onPress={handleLogout}
+            {/* Photo Modal */}
+            <Modal
+                visible={photoModalVisible}
+                transparent={true}
+                animationType="fade"
+                onRequestClose={closePhotoModal}
             >
-                <Ionicons name="log-out" size={20} color="white" />
-                <Text style={styles.logoutText}>Logout</Text>
-            </TouchableOpacity>
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContainer}>
+                        {/* Header */}
+                        <View style={[styles.modalHeader, { backgroundColor: colors.background }]}>
+                            <TouchableOpacity onPress={closePhotoModal}>
+                                <Ionicons name="close" size={24} color={colors.text} />
+                            </TouchableOpacity>
+                            <Text style={[styles.modalTitle, { color: colors.text }]}>
+                                {selectedPhoto?.index === 0 ? 'Main Photo' : 'Photo'}
+                            </Text>
+                            <View style={styles.headerActions}>
+                                {selectedPhoto?.index === 0 ? (
+                                    // Main photo actions: Edit
+                                    <TouchableOpacity
+                                        style={styles.headerActionButton}
+                                        onPress={handleEditMainPhoto}
+                                    >
+                                        <Ionicons name="create-outline" size={24} color={colors.primary} />
+                                    </TouchableOpacity>
+                                ) : (
+                                    // Other photos actions: Set as main, Delete
+                                    <>
+                                        <TouchableOpacity
+                                            style={styles.headerActionButton}
+                                            onPress={handleSetAsMain}
+                                        >
+                                            <Ionicons name="star-outline" size={24} color={colors.warning} />
+                                        </TouchableOpacity>
+                                        <TouchableOpacity
+                                            style={styles.headerActionButton}
+                                            onPress={handleDeletePhoto}
+                                        >
+                                            <Ionicons name="trash" size={24} color={colors.error} />
+                                        </TouchableOpacity>
+                                    </>
+                                )}
+                            </View>
+                        </View>
 
-            <View style={styles.footer}>
-                <Text style={[styles.footerText, { color: colors.icon }]}>
-                    Campus Crush v1.0.0
-                </Text>
-            </View>
-        </ScrollView>
+                        {/* Photo */}
+                        <View style={styles.modalImageContainer}>
+                            {selectedPhoto && (
+                                <Image
+                                    source={{ uri: selectedPhoto.photo.url || selectedPhoto.photo }}
+                                    style={styles.modalImage}
+                                    resizeMode="contain"
+                                />
+                            )}
+                        </View>
+                    </View>
+                </View>
+            </Modal>
+
+            {/* Add Photo Modal */}
+            <Modal
+                visible={addPhotoModalVisible}
+                transparent={true}
+                animationType="slide"
+                onRequestClose={closeAddPhotoModal}
+            >
+                <View style={styles.addPhotoModalOverlay}>
+                    <View style={[styles.addPhotoModalContainer, { backgroundColor: colors.background }]}>
+                        {/* Header */}
+                        <View style={styles.addPhotoModalHeader}>
+                            <View style={styles.addPhotoModalHandle} />
+                            <Text style={[styles.addPhotoModalTitle, { color: colors.text }]}>Add Photo</Text>
+                            <Text style={[styles.addPhotoModalSubtitle, { color: colors.icon }]}>
+                                Choose how you want to add a photo
+                            </Text>
+                        </View>
+
+                        {/* Options */}
+                        <View style={styles.addPhotoOptions}>
+                            <TouchableOpacity
+                                style={[styles.addPhotoOption, { backgroundColor: colors.card, borderColor: colors.border }]}
+                                onPress={handleCameraOption}
+                            >
+                                <View style={[styles.addPhotoOptionIcon, { backgroundColor: colors.primary }]}>
+                                    <Ionicons name="camera" size={28} color="white" />
+                                </View>
+                                <View style={styles.addPhotoOptionText}>
+                                    <Text style={[styles.addPhotoOptionTitle, { color: colors.text }]}>Camera</Text>
+                                    <Text style={[styles.addPhotoOptionSubtitle, { color: colors.icon }]}>
+                                        Take a new photo
+                                    </Text>
+                                </View>
+                                <Ionicons name="chevron-forward" size={20} color={colors.icon} />
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={[styles.addPhotoOption, { backgroundColor: colors.card, borderColor: colors.border }]}
+                                onPress={handleLibraryOption}
+                            >
+                                <View style={[styles.addPhotoOptionIcon, { backgroundColor: colors.secondary }]}>
+                                    <Ionicons name="images" size={28} color="white" />
+                                </View>
+                                <View style={styles.addPhotoOptionText}>
+                                    <Text style={[styles.addPhotoOptionTitle, { color: colors.text }]}>Photo Library</Text>
+                                    <Text style={[styles.addPhotoOptionSubtitle, { color: colors.icon }]}>
+                                        Choose from your photos
+                                    </Text>
+                                </View>
+                                <Ionicons name="chevron-forward" size={20} color={colors.icon} />
+                            </TouchableOpacity>
+                        </View>
+
+                        {/* Cancel Button */}
+                        <TouchableOpacity
+                            style={[styles.addPhotoCancelButton, { backgroundColor: colors.surface }]}
+                            onPress={closeAddPhotoModal}
+                        >
+                            <Text style={[styles.addPhotoCancelText, { color: colors.text }]}>Cancel</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
+        </SafeAreaView>
     );
 }
 
@@ -259,10 +616,15 @@ const styles = StyleSheet.create({
         fontSize: 24,
         fontWeight: 'bold',
     },
-    editButton: {
-        fontSize: 16,
-        fontWeight: '600',
+    headerButtons: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
     },
+    headerButton: {
+        padding: 4,
+    },
+
     profileCard: {
         margin: 20,
         padding: 20,
@@ -273,11 +635,26 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         marginBottom: 15,
     },
-    profileImage: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
+    mainPhotoContainer: {
+        position: 'relative',
         marginRight: 15,
+    },
+    profileImage: {
+        width: 130,
+        height: 130,
+        borderRadius: 70,
+    },
+    mainPhotoBadge: {
+        position: 'absolute',
+        bottom: 4,
+        right: 4,
+        width: 24,
+        height: 24,
+        borderRadius: 12,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 2,
+        borderColor: 'white',
     },
     profileInfo: {
         flex: 1,
@@ -320,88 +697,162 @@ const styles = StyleSheet.create({
         fontSize: 12,
         fontWeight: '500',
     },
-    photos: {
+    photosGrid: {
         flexDirection: 'row',
-        gap: 10,
+        flexWrap: 'wrap',
+        gap: 8,
+        marginTop: 8,
+    },
+    photoContainer: {
+        width: '31%', // 3 columns with gaps
     },
     photoThumbnail: {
-        width: 60,
-        height: 60,
-        borderRadius: 8,
+        width: '100%',
+        height: 100,
+        borderRadius: 12,
     },
-    section: {
-        marginHorizontal: 20,
-        marginBottom: 30,
+    addPhotoContainer: {
+        justifyContent: 'center',
+        alignItems: 'center',
     },
-    sectionTitle: {
+    addPhotoButton: {
+        width: '100%',
+        height: 100,
+        borderRadius: 12,
+        borderWidth: 2,
+        borderStyle: 'dashed',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.9)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    modalContainer: {
+        width: '100%',
+        height: '100%',
+        justifyContent: 'flex-start',
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+        paddingVertical: 15,
+        paddingTop: 50, // Account for status bar
+    },
+    modalTitle: {
         fontSize: 18,
         fontWeight: 'bold',
-        marginBottom: 15,
     },
-    settingItem: {
+    headerActions: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: 15,
-        borderRadius: 12,
-        marginBottom: 10,
-        borderWidth: 1,
+        gap: 16,
     },
-    settingLeft: {
-        flexDirection: 'row',
-        alignItems: 'center',
+    headerActionButton: {
+        padding: 4,
+    },
+    modalImageContainer: {
         flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+        paddingBottom: 50, // Account for home indicator
     },
-    settingIcon: {
+    modalImage: {
+        width: '100%',
+        height: '100%',
+        maxHeight: Dimensions.get('window').height * 0.8,
+    },
+    // Add Photo Modal Styles
+    addPhotoModalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        justifyContent: 'flex-end',
+    },
+    addPhotoModalContainer: {
+        borderTopLeftRadius: 20,
+        borderTopRightRadius: 20,
+        paddingBottom: 40,
+        minHeight: 300,
+    },
+    addPhotoModalHeader: {
+        alignItems: 'center',
+        paddingTop: 20,
+        paddingHorizontal: 20,
+        paddingBottom: 30,
+    },
+    addPhotoModalHandle: {
         width: 40,
-        height: 40,
-        borderRadius: 20,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginRight: 15,
+        height: 4,
+        backgroundColor: '#E0E0E0',
+        borderRadius: 2,
+        marginBottom: 20,
     },
-    settingText: {
-        flex: 1,
-    },
-    settingTitle: {
-        fontSize: 16,
-        fontWeight: '500',
-        marginBottom: 2,
-    },
-    settingSubtitle: {
-        fontSize: 12,
-        lineHeight: 16,
-    },
-    premiumBadge: {
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 12,
-    },
-    premiumText: {
-        color: 'white',
-        fontSize: 10,
+    addPhotoModalTitle: {
+        fontSize: 24,
         fontWeight: 'bold',
+        marginBottom: 8,
     },
-    logoutButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginHorizontal: 20,
-        paddingVertical: 15,
-        borderRadius: 12,
-        gap: 10,
+    addPhotoModalSubtitle: {
+        fontSize: 16,
+        textAlign: 'center',
+    },
+    addPhotoOptions: {
+        paddingHorizontal: 20,
+        gap: 12,
         marginBottom: 30,
     },
-    logoutText: {
-        color: 'white',
+    addPhotoOption: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 20,
+        borderRadius: 16,
+        borderWidth: 1,
+    },
+    addPhotoOptionIcon: {
+        width: 56,
+        height: 56,
+        borderRadius: 28,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 16,
+    },
+    addPhotoOptionText: {
+        flex: 1,
+    },
+    addPhotoOptionTitle: {
+        fontSize: 18,
+        fontWeight: '600',
+        marginBottom: 4,
+    },
+    addPhotoOptionSubtitle: {
+        fontSize: 14,
+    },
+    addPhotoCancelButton: {
+        marginHorizontal: 20,
+        paddingVertical: 16,
+        borderRadius: 12,
+        alignItems: 'center',
+    },
+    addPhotoCancelText: {
         fontSize: 16,
         fontWeight: '600',
     },
-    footer: {
-        alignItems: 'center',
-        paddingBottom: 30,
+    profileDetailsSection: {
+        marginVertical: 15,
+        gap: 8,
     },
-    footerText: {
-        fontSize: 12,
+    detailItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    detailText: {
+        fontSize: 14,
+        fontWeight: '500',
     },
 });

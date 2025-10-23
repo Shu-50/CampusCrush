@@ -32,6 +32,7 @@ export default function TabLayout() {
                 name="confessions"
                 options={{
                     title: 'Confessions',
+                    headerShown: false,
                     tabBarIcon: ({ color, size }) => (
                         <Ionicons name="chatbubble-ellipses" size={size} color={color} />
                     ),
@@ -41,6 +42,7 @@ export default function TabLayout() {
                 name="suggestions"
                 options={{
                     title: 'Discover',
+                    headerShown: false,
                     tabBarIcon: ({ color, size }) => (
                         <Ionicons name="heart" size={size} color={color} />
                     ),
@@ -50,6 +52,7 @@ export default function TabLayout() {
                 name="chat"
                 options={{
                     title: 'Chats',
+                    headerShown: false,
                     tabBarIcon: ({ color, size }) => (
                         <Ionicons name="chatbubbles" size={size} color={color} />
                     ),
@@ -59,6 +62,7 @@ export default function TabLayout() {
                 name="notifications"
                 options={{
                     title: 'Activity',
+                    headerShown: false,
                     tabBarIcon: ({ color, size }) => (
                         <Ionicons name="notifications" size={size} color={color} />
                     ),
@@ -68,6 +72,7 @@ export default function TabLayout() {
                 name="profile"
                 options={{
                     title: 'Profile',
+                    headerShown: false,
                     tabBarIcon: ({ color, size }) => (
                         <Ionicons name="person" size={size} color={color} />
                     ),

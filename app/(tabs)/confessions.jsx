@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     View,
     Text,
@@ -8,43 +8,15 @@ import {
     TextInput,
     Modal,
     Alert,
+    RefreshControl,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useColorScheme } from 'react-native';
 import { Colors } from '../../constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
+import ApiService from '../../services/api';
 
-const mockConfessions = [
-    {
-        id: '1',
-        content: 'I have a huge crush on someone in my CS class but I\'m too shy to talk to them 😭',
-        category: 'crush',
-        upvotes: 24,
-        reactions: { heart: 15, laugh: 2, fire: 7, sad: 0 },
-        comments: 8,
-        timeAgo: '2h',
-        isAnonymous: true,
-    },
-    {
-        id: '2',
-        content: 'Just broke up with my boyfriend of 2 years. College relationships are hard 💔',
-        category: 'breakup',
-        upvotes: 45,
-        reactions: { heart: 20, laugh: 0, fire: 5, sad: 20 },
-        comments: 15,
-        timeAgo: '4h',
-        isAnonymous: true,
-    },
-    {
-        id: '3',
-        content: 'I pretended to understand calculus for the entire semester. Finals are next week 😅',
-        category: 'funny',
-        upvotes: 89,
-        reactions: { heart: 10, laugh: 65, fire: 14, sad: 0 },
-        comments: 23,
-        timeAgo: '6h',
-        isAnonymous: true,
-    },
-];
+
 
 const categories = ['all', 'love', 'breakup', 'secret', 'funny', 'crush'];
 
@@ -52,59 +24,106 @@ export default function ConfessionsScreen() {
     const colorScheme = useColorScheme();
     const colors = Colors[colorScheme ?? 'light'];
 
-    const [confessions, setConfessions] = useState(mockConfessions);
+    const [confessions, setConfessions] = useState([]);
     const [selectedCategory, setSelectedCategory] = useState('all');
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [newConfession, setNewConfession] = useState('');
     const [newCategory, setNewCategory] = useState('secret');
+    const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
+    const [creating, setCreating] = useState(false);
 
-    const filteredConfessions = selectedCategory === 'all'
-        ? confessions
-        : confessions.filter(c => c.category === selectedCategory);
+    useEffect(() => {
+        loadConfessions();
+    }, [selectedCategory]);
 
-    const handleReaction = (confessionId, reactionType) => {
-        setConfessions(prev => prev.map(confession =>
-            confession.id === confessionId
-                ? {
-                    ...confession,
-                    reactions: {
-                        ...confession.reactions,
-                        [reactionType]: confession.reactions[reactionType] + 1
-                    }
-                }
-                : confession
-        ));
+    const loadConfessions = async () => {
+        try {
+            console.log('📖 Loading confessions for category:', selectedCategory);
+            const response = await ApiService.getConfessions(selectedCategory);
+
+            if (response.success) {
+                setConfessions(response.data.confessions);
+                console.log('✅ Loaded', response.data.confessions.length, 'confessions');
+            } else {
+                console.error('❌ Failed to load confessions:', response.message);
+                setConfessions([]);
+            }
+        } catch (error) {
+            console.error('❌ Error loading confessions:', error);
+            setConfessions([]);
+        } finally {
+            setLoading(false);
+            setRefreshing(false);
+        }
     };
 
-    const handleUpvote = (confessionId) => {
-        setConfessions(prev => prev.map(confession =>
-            confession.id === confessionId
-                ? { ...confession, upvotes: confession.upvotes + 1 }
-                : confession
-        ));
+    const onRefresh = () => {
+        setRefreshing(true);
+        loadConfessions();
     };
 
-    const handleCreateConfession = () => {
+    const handleReaction = async (confessionId, reactionType) => {
+        try {
+            const response = await ApiService.reactToConfession(confessionId, reactionType);
+
+            if (response.success) {
+                setConfessions(prev => prev.map(confession =>
+                    confession.id === confessionId
+                        ? {
+                            ...confession,
+                            reactions: {
+                                ...confession.reactions,
+                                [reactionType]: response.data.reactionCounts[reactionType]
+                            },
+                            userReactions: {
+                                ...confession.userReactions,
+                                [reactionType]: response.data.userReacted
+                            }
+                        }
+                        : confession
+                ));
+                console.log(`${response.data.userReacted ? '➕' : '➖'} Reacted ${reactionType} to confession`);
+            }
+        } catch (error) {
+            console.error('❌ Error reacting to confession:', error);
+            Alert.alert('Error', 'Failed to react to confession');
+        }
+    };
+
+
+
+    const handleCreateConfession = async () => {
         if (!newConfession.trim()) {
             Alert.alert('Error', 'Please write your confession');
             return;
         }
 
-        const confession = {
-            id: Date.now().toString(),
-            content: newConfession,
-            category: newCategory,
-            upvotes: 0,
-            reactions: { heart: 0, laugh: 0, fire: 0, sad: 0 },
-            comments: 0,
-            timeAgo: 'now',
-            isAnonymous: true,
-        };
+        if (newConfession.length > 1000) {
+            Alert.alert('Error', 'Confession is too long (max 1000 characters)');
+            return;
+        }
 
-        setConfessions(prev => [confession, ...prev]);
-        setNewConfession('');
-        setShowCreateModal(false);
-        Alert.alert('Success', 'Your confession has been posted anonymously!');
+        setCreating(true);
+
+        try {
+            const response = await ApiService.createConfession(newConfession.trim(), newCategory);
+
+            if (response.success) {
+                setConfessions(prev => [response.data.confession, ...prev]);
+                setNewConfession('');
+                setShowCreateModal(false);
+                Alert.alert('Success', 'Your confession has been posted anonymously!');
+                console.log('✅ Confession created successfully');
+            } else {
+                Alert.alert('Error', response.message || 'Failed to create confession');
+            }
+        } catch (error) {
+            console.error('❌ Error creating confession:', error);
+            Alert.alert('Error', 'Failed to create confession. Please try again.');
+        } finally {
+            setCreating(false);
+        }
     };
 
     const renderConfession = ({ item }) => (
@@ -119,14 +138,6 @@ export default function ConfessionsScreen() {
             <Text style={[styles.confessionContent, { color: colors.text }]}>{item.content}</Text>
 
             <View style={styles.confessionFooter}>
-                <TouchableOpacity
-                    style={styles.actionButton}
-                    onPress={() => handleUpvote(item.id)}
-                >
-                    <Ionicons name="arrow-up" size={20} color={colors.primary} />
-                    <Text style={[styles.actionText, { color: colors.primary }]}>{item.upvotes}</Text>
-                </TouchableOpacity>
-
                 <View style={styles.reactions}>
                     <TouchableOpacity onPress={() => handleReaction(item.id, 'heart')}>
                         <Text style={styles.reactionButton}>❤️ {item.reactions.heart}</Text>
@@ -151,7 +162,7 @@ export default function ConfessionsScreen() {
     );
 
     return (
-        <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
             <View style={styles.header}>
                 <Text style={[styles.title, { color: colors.text }]}>Campus Confessions</Text>
                 <TouchableOpacity
@@ -195,11 +206,34 @@ export default function ConfessionsScreen() {
             </View>
 
             <FlatList
-                data={filteredConfessions}
+                data={confessions}
                 keyExtractor={(item) => item.id}
                 renderItem={renderConfession}
                 contentContainerStyle={styles.confessionsList}
                 showsVerticalScrollIndicator={false}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={onRefresh}
+                        colors={[colors.primary]}
+                        tintColor={colors.primary}
+                    />
+                }
+                ListEmptyComponent={
+                    loading ? (
+                        <View style={styles.emptyContainer}>
+                            <Text style={[styles.emptyText, { color: colors.icon }]}>Loading confessions...</Text>
+                        </View>
+                    ) : (
+                        <View style={styles.emptyContainer}>
+                            <Text style={styles.emptyEmoji}>💭</Text>
+                            <Text style={[styles.emptyTitle, { color: colors.text }]}>No confessions yet</Text>
+                            <Text style={[styles.emptyText, { color: colors.icon }]}>
+                                Be the first to share your thoughts anonymously!
+                            </Text>
+                        </View>
+                    )
+                }
             />
 
             <Modal
@@ -213,8 +247,15 @@ export default function ConfessionsScreen() {
                             <Text style={[styles.cancelButton, { color: colors.primary }]}>Cancel</Text>
                         </TouchableOpacity>
                         <Text style={[styles.modalTitle, { color: colors.text }]}>New Confession</Text>
-                        <TouchableOpacity onPress={handleCreateConfession}>
-                            <Text style={[styles.postButton, { color: colors.primary }]}>Post</Text>
+                        <TouchableOpacity
+                            onPress={handleCreateConfession}
+                            disabled={creating}
+                        >
+                            <Text style={[styles.postButton, {
+                                color: creating ? colors.icon : colors.primary
+                            }]}>
+                                {creating ? 'Posting...' : 'Post'}
+                            </Text>
                         </TouchableOpacity>
                     </View>
 
@@ -267,7 +308,7 @@ export default function ConfessionsScreen() {
                     </View>
                 </View>
             </Modal>
-        </View>
+        </SafeAreaView>
     );
 }
 
@@ -414,5 +455,25 @@ const styles = StyleSheet.create({
     categoryOptionText: {
         fontSize: 14,
         fontWeight: '500',
+    },
+    emptyContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingVertical: 60,
+    },
+    emptyEmoji: {
+        fontSize: 60,
+        marginBottom: 16,
+    },
+    emptyTitle: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        marginBottom: 8,
+    },
+    emptyText: {
+        fontSize: 16,
+        textAlign: 'center',
+        paddingHorizontal: 40,
     },
 });

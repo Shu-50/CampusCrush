@@ -14,8 +14,92 @@ mongoose.connect(process.env.MONGODB_URI, {
     useNewUrlParser: true,
     useUnifiedTopology: true
 })
-    .then(() => {
+    .then(async () => {
         console.log('✅ MongoDB connected');
+
+        // Clean up any existing users with invalid enum values
+        try {
+            const User = require('./models/User');
+
+            // Fix users with invalid year values
+            await User.updateMany(
+                { year: { $nin: ['1st', '2nd', '3rd', 'Final', null] } },
+                { $set: { year: null } }
+            );
+
+            // Fix users with invalid gender values
+            await User.updateMany(
+                { gender: { $nin: ['Male', 'Female', 'Non-binary', 'Other', null] } },
+                { $set: { gender: null } }
+            );
+
+            // Clean up old Match collection structure
+            const Match = require('./models/Match');
+
+            // Drop old indexes that might conflict
+            try {
+                await Match.collection.dropIndex('users_1');
+                console.log('✅ Dropped old users index');
+            } catch (indexError) {
+                // Index might not exist, that's okay
+                console.log('ℹ️ Old users index not found (expected)');
+            }
+
+            // Remove any matches with old structure
+            await Match.deleteMany({ users: { $exists: true } });
+            console.log('✅ Cleaned up old match structure');
+
+            // Remove duplicate matches (keep only the first one for each pair)
+            const duplicateMatches = await Match.aggregate([
+                {
+                    $group: {
+                        _id: {
+                            $cond: [
+                                { $lt: ['$user1', '$user2'] },
+                                { user1: '$user1', user2: '$user2' },
+                                { user1: '$user2', user2: '$user1' }
+                            ]
+                        },
+                        matches: { $push: '$_id' },
+                        count: { $sum: 1 }
+                    }
+                },
+                {
+                    $match: { count: { $gt: 1 } }
+                }
+            ]);
+
+            for (const duplicate of duplicateMatches) {
+                // Keep the first match, delete the rest
+                const matchesToDelete = duplicate.matches.slice(1);
+                await Match.deleteMany({ _id: { $in: matchesToDelete } });
+                console.log(`✅ Removed ${matchesToDelete.length} duplicate matches`);
+            }
+
+            // Clean reset of all photo likes due to data corruption
+            try {
+                console.log('🧹 Resetting all photo likes to clean state...');
+
+                // Use MongoDB updateMany to directly reset all photo likes
+                const result = await User.updateMany(
+                    { 'photos.0': { $exists: true } },
+                    {
+                        $set: {
+                            'photos.$[].likes': [],
+                            'photos.$[].likeCount': 0
+                        }
+                    }
+                );
+
+                console.log(`✅ Reset photo likes for ${result.modifiedCount} users`);
+            } catch (likesResetError) {
+                console.log('⚠️ Photo likes reset failed:', likesResetError.message);
+            }
+
+            console.log('✅ Database cleanup completed');
+        } catch (cleanupError) {
+            console.log('⚠️ Database cleanup failed:', cleanupError.message);
+        }
     })
     .catch((err) => {
         console.error('❌ MongoDB connection failed:', err.message);
@@ -25,6 +109,11 @@ mongoose.connect(process.env.MONGODB_URI, {
 // Routes
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/users', require('./routes/users'));
+app.use('/api/notifications', require('./routes/notifications'));
+app.use('/api/matches', require('./routes/matches'));
+app.use('/api/chat', require('./routes/chat'));
+app.use('/api/photos', require('./routes/photos'));
+app.use('/api/confessions', require('./routes/confessions'));
 
 // Health check
 app.get('/api/health', (req, res) => {

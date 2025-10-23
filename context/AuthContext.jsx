@@ -22,6 +22,9 @@ export const AuthProvider = ({ children }) => {
 
     const checkAuthStatus = async () => {
         try {
+            // Test connection on app startup to warm up the API
+            await ApiService.testConnection();
+
             const token = await ApiService.getAuthToken();
             if (token) {
                 const response = await ApiService.getCurrentUser();

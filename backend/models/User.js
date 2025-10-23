@@ -29,7 +29,15 @@ const userSchema = new mongoose.Schema({
     photos: [{
         url: String,
         publicId: String,
-        isMain: { type: Boolean, default: false }
+        isMain: { type: Boolean, default: false },
+        likes: [{
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User'
+        }], // Simple array of user IDs who liked this photo
+        likeCount: {
+            type: Number,
+            default: 0
+        }
     }],
     bio: {
         type: String,
@@ -43,72 +51,37 @@ const userSchema = new mongoose.Schema({
     },
     year: {
         type: String,
-        enum: ['1st', '2nd', '3rd', 'Final'],
-        default: null
+        required: false,
+        default: null,
+        validate: {
+            validator: function (value) {
+                // Allow null, undefined, or empty string
+                if (!value || value === '') return true;
+                // Otherwise, must be one of the valid values
+                return ['1st', '2nd', '3rd', 'Final'].includes(value);
+            },
+            message: 'Year must be one of: 1st, 2nd, 3rd, Final'
+        }
     },
     branch: {
         type: String,
-        enum: [
-            'CSE',      // Computer Science Engineering
-            'IT',       // Information Technology
-            'SE',       // Software Engineering
-            'EE',       // Electrical Engineering
-            'ECE',      // Electronics & Communication Engineering
-            'ENTC',     // Electronics & Telecommunication
-            'ME',       // Mechanical Engineering
-            'CE',       // Civil Engineering
-            'CHE',      // Chemical Engineering
-            'BME',      // Biomedical Engineering
-            'AE',       // Aerospace Engineering
-            'AIDS',     // Artificial Intelligence & Data Science
-            'ML',       // Machine Learning
-            'AI',       // Artificial Intelligence
-            'DS',       // Data Science
-            'CYBER',    // Cyber Security
-            'IOT',      // Internet of Things
-            'ROBOTICS', // Robotics Engineering
-            'AUTO',     // Automobile Engineering
-            'PROD',     // Production Engineering
-            'TEXTILE',  // Textile Engineering
-            'FOOD',     // Food Technology
-            'BIOTECH',  // Biotechnology
-            'MBA',      // Master of Business Administration
-            'BBA',      // Bachelor of Business Administration
-            'MKTG',     // Marketing
-            'FIN',      // Finance
-            'ACC',      // Accounting
-            'ECON',     // Economics
-            'PSYCH',    // Psychology
-            'BIO',      // Biology
-            'CHEM',     // Chemistry
-            'PHY',      // Physics
-            'MATH',     // Mathematics
-            'STAT',     // Statistics
-            'ENG',      // English
-            'HIST',     // History
-            'POLSCI',   // Political Science
-            'SOC',      // Sociology
-            'PHIL',     // Philosophy
-            'ART',      // Art & Design
-            'MUSIC',    // Music
-            'THEATER',  // Theater
-            'COMM',     // Communications
-            'JOURN',    // Journalism
-            'MED',      // Medicine
-            'MBBS',     // Bachelor of Medicine
-            'NURS',     // Nursing
-            'PHARMC',   // Pharmacy
-            'LAW',      // Law
-            'EDU',      // Education
-            'ARCH',     // Architecture
-            'OTHER'     // Other
-        ],
-        default: null
+        required: false,
+        trim: true,
+        maxlength: [100, 'Branch name cannot exceed 100 characters']
     },
     gender: {
         type: String,
-        enum: ['Male', 'Female', 'Non-binary', 'Other'],
-        default: null
+        required: false,
+        default: null,
+        validate: {
+            validator: function (value) {
+                // Allow null, undefined, or empty string
+                if (!value || value === '') return true;
+                // Otherwise, must be one of the valid values
+                return ['Male', 'Female', 'Non-binary', 'Other'].includes(value);
+            },
+            message: 'Gender must be one of: Male, Female, Non-binary, Other'
+        }
     },
     interests: [{
         type: String,
@@ -116,8 +89,31 @@ const userSchema = new mongoose.Schema({
     }],
     lookingFor: {
         type: String,
-        enum: ['Relationship', 'Friendship', 'Casual', 'Not sure'],
-        default: 'Not sure'
+        required: false,
+        default: 'Not sure',
+        validate: {
+            validator: function (value) {
+                // Allow null, undefined, or empty string
+                if (!value || value === '') return true;
+                // Otherwise, must be one of the valid values
+                return ['Relationship', 'Friendship', 'Casual', 'Not sure'].includes(value);
+            },
+            message: 'LookingFor must be one of: Relationship, Friendship, Casual, Not sure'
+        }
+    },
+    preference: {
+        type: String,
+        required: false,
+        default: null,
+        validate: {
+            validator: function (value) {
+                // Allow null, undefined, or empty string
+                if (!value || value === '') return true;
+                // Otherwise, must be one of the valid values
+                return ['Male', 'Female', 'Both'].includes(value);
+            },
+            message: 'Preference must be one of: Male, Female, Both'
+        }
     }
 }, {
     timestamps: true

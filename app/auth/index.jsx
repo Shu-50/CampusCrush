@@ -6,6 +6,7 @@ import {
     TouchableOpacity,
     Dimensions,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useColorScheme } from 'react-native';
 import { Colors } from '../../constants/Colors';
@@ -19,7 +20,7 @@ export default function AuthScreen() {
     const colors = Colors[colorScheme ?? 'light'];
 
     return (
-        <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
             <LinearGradient
                 colors={[colors.primary, colors.secondary]}
                 style={styles.header}
@@ -53,7 +54,7 @@ export default function AuthScreen() {
                     By continuing, you agree to our Terms of Service and Privacy Policy
                 </Text>
             </View>
-        </View>
+        </SafeAreaView>
     );
 }
 

@@ -4,8 +4,8 @@
 
 ### **Step 1: Start Backend** 
 ```bash
-cd Date/backend
-node server-simple.js
+cd campusCrush/backend
+node server.js
 ```
 **Expected Output:**
 ```
@@ -17,7 +17,7 @@ node server-simple.js
 
 ### **Step 2: Start Frontend**
 ```bash
-cd Date
+cd campusCrush
 npm start
 ```
 
@@ -107,12 +107,12 @@ Splash → Onboarding → Auth → Login/Register → Profile Setup → Main Tab
 
 **Start Backend:**
 ```bash
-cd Date/backend && node server-simple.js
+cd campusCrush/backend && node server.js
 ```
 
 **Start Frontend:**
 ```bash
-cd Date && npm start
+cd campusCrush && npm start
 ```
 
 **Kill All Node Processes:**

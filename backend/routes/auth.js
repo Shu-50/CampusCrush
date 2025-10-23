@@ -136,6 +136,24 @@ router.post('/login', async (req, res) => {
     }
 });
 
+// Logout endpoint
+router.post('/logout', (req, res) => {
+    try {
+        // In a stateless JWT system, logout is handled client-side
+        // by removing the token. Server doesn't need to do anything.
+        res.json({
+            success: true,
+            message: 'Logout successful'
+        });
+    } catch (error) {
+        console.error('Logout error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Server error'
+        });
+    }
+});
+
 // Get current user
 router.get('/me', async (req, res) => {
     try {
@@ -165,7 +183,16 @@ router.get('/me', async (req, res) => {
                     id: user._id,
                     name: user.name,
                     email: user.email,
-                    college: user.college
+                    college: user.college,
+                    photos: user.photos || [],
+                    bio: user.bio || '',
+                    age: user.age || null,
+                    year: user.year || null,
+                    branch: user.branch || null,
+                    gender: user.gender || null,
+                    interests: user.interests || [],
+                    lookingFor: user.lookingFor || 'Not sure',
+                    preference: user.preference || null
                 }
             }
         });

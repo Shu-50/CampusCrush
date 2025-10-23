@@ -1,25 +1,35 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
-// Multiple API URLs to try in order
+// Multiple API URLs to try in order (working URL first for faster connection)
 const API_URLS = __DEV__ ? [
+    'http://10.156.157.133:5001/api', // Working URL - put first for speed
     Platform.OS === 'android' ? 'http://10.0.2.2:5001/api' : 'http://localhost:5001/api',
     'http://127.0.0.1:5001/api',
-    'http://10.156.157.133:5001/api',
     'http://192.168.1.100:5001/api', // Common router IP range
 ] : ['https://your-production-api.com/api'];
 
-const API_BASE_URL = API_URLS[0]; // Start with first URL
+const API_BASE_URL = API_URLS[0]; // Start with first URL (now the working one)
 
 class ApiService {
     constructor() {
         this.baseURL = API_BASE_URL;
+        this.workingURL = null; // Cache for working URL
+        this.lastConnectionTest = 0; // Timestamp of last connection test
         console.log('🔗 API Service initialized with URL:', this.baseURL);
         console.log('📱 Platform:', Platform.OS);
     }
 
     // Test connectivity with multiple URLs
     async testConnection() {
+        // If we have a cached working URL and it was tested recently (within 30 seconds), use it
+        const now = Date.now();
+        if (this.workingURL && (now - this.lastConnectionTest) < 30000) {
+            console.log('🚀 Using cached working URL:', this.workingURL);
+            this.baseURL = this.workingURL;
+            return { success: true, workingURL: this.workingURL };
+        }
+
         console.log('🧪 Testing connection with multiple URLs...');
 
         for (let i = 0; i < API_URLS.length; i++) {
@@ -27,20 +37,28 @@ class ApiService {
             try {
                 console.log(`🔍 Trying URL ${i + 1}/${API_URLS.length}:`, testURL);
 
+                // Create AbortController for timeout
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 2000); // 2 second timeout
+
                 const response = await fetch(`${testURL.replace('/api', '')}/api/health`, {
                     method: 'GET',
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    timeout: 5000, // 5 second timeout
+                    signal: controller.signal,
                 });
+
+                clearTimeout(timeoutId);
 
                 if (response.ok) {
                     const data = await response.json();
                     console.log('✅ Connection successful with URL:', testURL);
 
-                    // Update the base URL to the working one
+                    // Update the base URL and cache the working URL
                     this.baseURL = testURL;
+                    this.workingURL = testURL;
+                    this.lastConnectionTest = Date.now();
 
                     return { success: true, data, workingURL: testURL };
                 }
@@ -97,7 +115,16 @@ class ApiService {
         console.log('📡 Making API request to:', fullUrl);
 
         try {
-            const response = await fetch(fullUrl, config);
+            // Add timeout to main request
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout for main requests
+
+            const response = await fetch(fullUrl, {
+                ...config,
+                signal: controller.signal,
+            });
+
+            clearTimeout(timeoutId);
 
             if (!response.ok) {
                 const errorText = await response.text();
@@ -119,7 +146,11 @@ class ApiService {
         } catch (error) {
             console.error('❌ API request error:', error);
 
-            if (error.message === 'Network request failed' || error.message.includes('fetch')) {
+            if (error.name === 'AbortError') {
+                console.log('⏱️ Request timed out, testing connection...');
+            }
+
+            if (error.message === 'Network request failed' || error.message.includes('fetch') || error.name === 'AbortError') {
                 // Try to find a working URL
                 console.log('🔄 Network failed, testing connection...');
                 const testResult = await this.testConnection();
@@ -137,7 +168,7 @@ class ApiService {
                     }
                 }
 
-                throw new Error('Cannot connect to server. Please check if the backend is running on port 5000.');
+                throw new Error('Cannot connect to server. Please check if the backend is running on port 5001.');
             }
 
             throw error;
@@ -193,7 +224,15 @@ class ApiService {
     }
 
     async getCurrentUser() {
-        return this.makeRequest('/auth/me');
+        // Use the profile endpoint to get complete user data
+        try {
+            const response = await this.makeRequest('/users/profile');
+            return response;
+        } catch (error) {
+            // Fallback to auth/me if profile endpoint fails
+            console.log('Profile endpoint failed, trying auth/me:', error.message);
+            return this.makeRequest('/auth/me');
+        }
     }
 
     // User endpoints
@@ -256,13 +295,20 @@ class ApiService {
     }
 
     async deletePhoto(publicId) {
-        return this.makeRequest(`/users/photo/${publicId}`, {
+        console.log('🗑️ Deleting photo with publicId:', publicId);
+        const encodedPublicId = encodeURIComponent(publicId);
+        console.log('🔗 Encoded publicId:', encodedPublicId);
+        console.log('🔗 Delete URL:', `/users/photo/${encodedPublicId}`);
+        return this.makeRequest(`/users/photo/${encodedPublicId}`, {
             method: 'DELETE',
         });
     }
 
     async setMainPhoto(publicId) {
-        return this.makeRequest(`/users/photo/${publicId}/main`, {
+        console.log('⭐ Setting main photo with publicId:', publicId);
+        const encodedPublicId = encodeURIComponent(publicId);
+        console.log('🔗 Encoded publicId for main photo:', encodedPublicId);
+        return this.makeRequest(`/users/photo/${encodedPublicId}/main`, {
             method: 'PUT',
         });
     }
@@ -340,52 +386,16 @@ class ApiService {
         return this.makeRequest('/chat/unread-count');
     }
 
-    // Confession endpoints
-    async getConfessions(page = 1, category = 'all', sort = 'recent') {
-        return this.makeRequest(`/confessions?page=${page}&category=${category}&sort=${sort}`);
-    }
 
-    async createConfession(confessionData) {
-        return this.makeRequest('/confessions', {
-            method: 'POST',
-            body: JSON.stringify(confessionData),
-        });
-    }
-
-    async getConfession(id) {
-        return this.makeRequest(`/confessions/${id}`);
-    }
-
-    async upvoteConfession(id) {
-        return this.makeRequest(`/confessions/${id}/upvote`, {
-            method: 'POST',
-        });
-    }
-
-    async reactToConfession(id, type) {
-        return this.makeRequest(`/confessions/${id}/react`, {
-            method: 'POST',
-            body: JSON.stringify({ type }),
-        });
-    }
-
-    async addComment(confessionId, content) {
-        return this.makeRequest(`/confessions/${confessionId}/comments`, {
-            method: 'POST',
-            body: JSON.stringify({ content }),
-        });
-    }
-
-    async addReply(confessionId, commentId, content) {
-        return this.makeRequest(`/confessions/${confessionId}/comments/${commentId}/replies`, {
-            method: 'POST',
-            body: JSON.stringify({ content }),
-        });
-    }
 
     // Notification endpoints
     async getNotifications(page = 1, type = null, unreadOnly = false) {
-        const params = new URLSearchParams({ page, ...(type && { type }), unreadOnly });
+        const params = new URLSearchParams({
+            page,
+            ...(type && { type }),
+            unreadOnly,
+            _t: Date.now() // Prevent caching
+        });
         return this.makeRequest(`/notifications?${params}`);
     }
 
@@ -403,6 +413,39 @@ class ApiService {
 
     async getUnreadNotificationCount() {
         return this.makeRequest('/notifications/unread-count');
+    }
+
+    // Photo like endpoint - TODO: Implement backend endpoint
+    // Backend should expect: { photoUrl: "url", isLike: true/false }
+    // Backend should return: { success: true, data: { likeCount: 25 } }
+    // Currently disabled in frontend until backend is ready
+    async likePhoto(photoUrl, isLike) {
+        return this.makeRequest('/photos/like', {
+            method: 'POST',
+            body: JSON.stringify({ photoUrl, isLike }),
+        });
+    }
+
+    // Confession endpoints
+    async getConfessions(category = 'all', page = 1) {
+        const params = new URLSearchParams({ category, page });
+        return this.makeRequest(`/confessions?${params}`);
+    }
+
+    async createConfession(content, category = 'secret') {
+        return this.makeRequest('/confessions', {
+            method: 'POST',
+            body: JSON.stringify({ content, category }),
+        });
+    }
+
+
+
+    async reactToConfession(confessionId, type) {
+        return this.makeRequest(`/confessions/${confessionId}/react`, {
+            method: 'POST',
+            body: JSON.stringify({ type }),
+        });
     }
 }
 

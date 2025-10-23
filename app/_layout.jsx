@@ -26,9 +26,11 @@ export default function RootLayout() {
                 <Stack.Screen name="onboarding" options={{ headerShown: false }} />
                 <Stack.Screen name="auth" options={{ headerShown: false }} />
                 <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                <Stack.Screen name="profile-setup" options={{ title: 'Setup Profile' }} />
-                <Stack.Screen name="post/[id]" options={{ title: 'Post' }} />
-                <Stack.Screen name="chat/[matchId]" options={{ title: 'Chat' }} />
+                <Stack.Screen name="profile-setup" options={{ headerShown: false }} />
+                <Stack.Screen name="settings" options={{ headerShown: false }} />
+                <Stack.Screen name="post/[id]" options={{ headerShown: false }} />
+                <Stack.Screen name="chat/[matchId]" options={{ headerShown: false }} />
+                <Stack.Screen name="chat/[id]" options={{ headerShown: false }} />
             </Stack>
         </AuthProvider>
     );
