@@ -28,6 +28,7 @@ export default function RootLayout() {
                 <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
                 <Stack.Screen name="profile-setup" options={{ headerShown: false }} />
                 <Stack.Screen name="settings" options={{ headerShown: false }} />
+                <Stack.Screen name="create-confession" options={{ headerShown: false }} />
                 <Stack.Screen name="post/[id]" options={{ headerShown: false }} />
                 <Stack.Screen name="chat/[matchId]" options={{ headerShown: false }} />
                 <Stack.Screen name="chat/[id]" options={{ headerShown: false }} />

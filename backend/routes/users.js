@@ -71,7 +71,8 @@ router.get('/profile', auth, async (req, res) => {
                     gender: user.gender || null,
                     interests: user.interests || [],
                     lookingFor: user.lookingFor || 'Not sure',
-                    preference: user.preference || null
+                    preference: user.preference || null,
+                    instagram: user.instagram || null
                 }
             }
         });
@@ -84,7 +85,7 @@ router.get('/profile', auth, async (req, res) => {
 // Update profile
 router.put('/profile', auth, async (req, res) => {
     try {
-        const { name, bio, age, year, branch, gender, interests, lookingFor, preference } = req.body;
+        const { name, bio, age, year, branch, gender, interests, lookingFor, preference, instagram } = req.body;
 
         // Validate age
         if (age && (age < 18 || age > 30)) {
@@ -120,6 +121,12 @@ router.put('/profile', auth, async (req, res) => {
         if (interests !== undefined) updates.interests = interests;
         if (lookingFor !== undefined) updates.lookingFor = lookingFor;
         if (preference !== undefined) updates.preference = preference;
+        if (instagram !== undefined) {
+            updates.instagram = {
+                username: instagram.username ? instagram.username.trim() : '',
+                isPublic: instagram.isPublic || false
+            };
+        }
 
         const user = await User.findByIdAndUpdate(
             req.user.userId,
@@ -144,7 +151,8 @@ router.put('/profile', auth, async (req, res) => {
                     gender: user.gender || null,
                     interests: user.interests || [],
                     lookingFor: user.lookingFor || 'Not sure',
-                    preference: user.preference || null
+                    preference: user.preference || null,
+                    instagram: user.instagram || null
                 }
             }
         });
@@ -368,7 +376,7 @@ router.get('/discover', auth, async (req, res) => {
             name: { $exists: true, $ne: '' },
             photos: { $exists: true, $not: { $size: 0 } }
         })
-            .select('name photos bio age year branch college interests gender lookingFor')
+            .select('name photos bio age year branch college interests gender lookingFor instagram')
             .limit(parseInt(limit));
 
         console.log(`🔍 Found ${users.length} users for discovery`);
@@ -400,6 +408,7 @@ router.get('/discover', auth, async (req, res) => {
                     interests: user.interests || [],
                     gender: user.gender || null,
                     lookingFor: user.lookingFor || null,
+                    instagram: user.instagram || null,
                     isVerified: true, // For now, assume all users are verified
                     distance: null // Distance calculation not implemented yet
                 }))

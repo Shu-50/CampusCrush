@@ -37,36 +37,7 @@ export default function ChatDetailScreen() {
     const [isTyping, setIsTyping] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
 
-    // Mock messages for development
-    const mockMessages = [
-        {
-            id: '1',
-            content: 'Hey! How was your CS exam?',
-            senderId: id,
-            senderName: 'Sarah',
-            timestamp: new Date(Date.now() - 2 * 60 * 1000),
-            type: 'text',
-            isRead: true,
-        },
-        {
-            id: '2',
-            content: 'It went pretty well! Thanks for asking 😊',
-            senderId: 'me',
-            senderName: 'You',
-            timestamp: new Date(Date.now() - 1 * 60 * 1000),
-            type: 'text',
-            isRead: true,
-        },
-        {
-            id: '3',
-            content: 'That\'s awesome! Want to celebrate with some coffee?',
-            senderId: id,
-            senderName: 'Sarah',
-            timestamp: new Date(Date.now() - 30 * 1000),
-            type: 'text',
-            isRead: false,
-        },
-    ];
+
 
     useEffect(() => {
         loadChatData();
@@ -89,23 +60,10 @@ export default function ChatDetailScreen() {
             if (response.success && response.data) {
                 setMatch(response.data.match);
             } else {
-                // Mock match data for development
-                setMatch({
-                    id: id,
-                    name: 'Sarah',
-                    avatar: 'https://via.placeholder.com/50x50/7B2CBF/FFFFFF?text=S',
-                    isOnline: true,
-                });
+                console.log('No match data found');
             }
         } catch (error) {
             console.error('❌ Error loading chat data:', error);
-            // Mock match data for development
-            setMatch({
-                id: id,
-                name: 'Sarah',
-                avatar: 'https://via.placeholder.com/50x50/7B2CBF/FFFFFF?text=S',
-                isOnline: true,
-            });
         }
     };
 
@@ -124,16 +82,14 @@ export default function ChatDetailScreen() {
                     setMatch(response.data.match);
                 }
             } else {
-                // Use mock messages for development
                 if (!silent) {
-                    setMessages(mockMessages);
+                    setMessages([]);
                 }
             }
         } catch (error) {
             if (!silent) {
                 console.error('❌ Error loading messages:', error);
-                // Use mock messages for development
-                setMessages(mockMessages);
+                setMessages([]);
             }
         } finally {
             if (!silent) {

@@ -114,6 +114,28 @@ const userSchema = new mongoose.Schema({
             },
             message: 'Preference must be one of: Male, Female, Both'
         }
+    },
+    instagram: {
+        username: {
+            type: String,
+            required: false,
+            default: null,
+            trim: true,
+            maxlength: [30, 'Instagram username cannot exceed 30 characters'],
+            validate: {
+                validator: function (value) {
+                    // Allow null, undefined, or empty string
+                    if (!value || value === '') return true;
+                    // Instagram username validation: alphanumeric, dots, underscores
+                    return /^[a-zA-Z0-9._]+$/.test(value);
+                },
+                message: 'Instagram username can only contain letters, numbers, dots, and underscores'
+            }
+        },
+        isPublic: {
+            type: Boolean,
+            default: false
+        }
     }
 }, {
     timestamps: true

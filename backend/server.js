@@ -96,6 +96,49 @@ mongoose.connect(process.env.MONGODB_URI, {
                 console.log('⚠️ Photo likes reset failed:', likesResetError.message);
             }
 
+            // Clean up confession reactions to ensure they are arrays
+            try {
+                console.log('🧹 Fixing confession reactions arrays...');
+                const Confession = require('./models/Confession');
+
+                // Fix confessions where reactions is not an array
+                const confessionResult = await Confession.updateMany(
+                    {
+                        $or: [
+                            { reactions: { $exists: false } },
+                            { reactions: { $not: { $type: "array" } } }
+                        ]
+                    },
+                    { $set: { reactions: [] } }
+                );
+
+                // Fix confessions where comments is not an array
+                const commentResult = await Confession.updateMany(
+                    {
+                        $or: [
+                            { comments: { $exists: false } },
+                            { comments: { $not: { $type: "array" } } }
+                        ]
+                    },
+                    { $set: { comments: [] } }
+                );
+
+                // Fix confessions where userId is missing (delete them as they're invalid)
+                const invalidConfessions = await Confession.deleteMany({
+                    $or: [
+                        { userId: { $exists: false } },
+                        { userId: null },
+                        { userId: undefined }
+                    ]
+                });
+
+                console.log(`✅ Fixed reactions for ${confessionResult.modifiedCount} confessions`);
+                console.log(`✅ Fixed comments for ${commentResult.modifiedCount} confessions`);
+                console.log(`✅ Removed ${invalidConfessions.deletedCount} invalid confessions`);
+            } catch (confessionCleanupError) {
+                console.log('⚠️ Confession cleanup failed:', confessionCleanupError.message);
+            }
+
             console.log('✅ Database cleanup completed');
         } catch (cleanupError) {
             console.log('⚠️ Database cleanup failed:', cleanupError.message);

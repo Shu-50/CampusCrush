@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     View,
     Text,
@@ -8,55 +8,16 @@ import {
     TextInput,
     KeyboardAvoidingView,
     Platform,
+    Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useColorScheme } from 'react-native';
 import { Colors } from '../../constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
+import ApiService from '../../services/api';
 
-const mockPost = {
-    id: '1',
-    content: 'I have a huge crush on someone in my CS class but I\'m too shy to talk to them 😭 What should I do? Any advice would be appreciated!',
-    category: 'crush',
-    upvotes: 24,
-    reactions: { heart: 15, laugh: 2, fire: 7, sad: 0 },
-    timeAgo: '2h',
-    isAnonymous: true,
-    comments: [
-        {
-            id: '1',
-            content: 'Just go for it! The worst they can say is no, and you\'ll never know if you don\'t try.',
-            author: 'Anonymous',
-            timeAgo: '1h',
-            upvotes: 8,
-            replies: [
-                {
-                    id: '1',
-                    content: 'This! I was in the same situation and it worked out great!',
-                    author: 'Anonymous',
-                    timeAgo: '45m',
-                    upvotes: 3,
-                }
-            ]
-        },
-        {
-            id: '2',
-            content: 'Maybe start with small talk about the class? Ask about assignments or study groups.',
-            author: 'Anonymous',
-            timeAgo: '1h',
-            upvotes: 12,
-            replies: []
-        },
-        {
-            id: '3',
-            content: 'I feel you! CS classes can be intimidating. Maybe find common interests first?',
-            author: 'Anonymous',
-            timeAgo: '30m',
-            upvotes: 5,
-            replies: []
-        }
-    ]
-};
+
 
 export default function PostDetailScreen() {
     const { id } = useLocalSearchParams();
@@ -64,54 +25,108 @@ export default function PostDetailScreen() {
     const colorScheme = useColorScheme();
     const colors = Colors[colorScheme ?? 'light'];
 
-    const [post, setPost] = useState(mockPost);
+    const [post, setPost] = useState(null);
+    const [loading, setLoading] = useState(true);
     const [newComment, setNewComment] = useState('');
     const [replyingTo, setReplyingTo] = useState(null);
 
-    const handleReaction = (reactionType) => {
-        setPost(prev => ({
-            ...prev,
-            reactions: {
-                ...prev.reactions,
-                [reactionType]: prev.reactions[reactionType] + 1
+    useEffect(() => {
+        loadPost();
+    }, [id]);
+
+    const loadPost = async () => {
+        try {
+            setLoading(true);
+            console.log('📖 Loading confession post:', id);
+            const response = await ApiService.getConfession(id);
+            if (response.success) {
+                setPost(response.data.confession);
+                console.log('✅ Loaded confession successfully');
+            } else {
+                console.log('❌ Failed to load confession:', response.message);
+                setPost(null);
             }
-        }));
-    };
-
-    const handleUpvote = () => {
-        setPost(prev => ({ ...prev, upvotes: prev.upvotes + 1 }));
-    };
-
-    const handleAddComment = () => {
-        if (!newComment.trim()) return;
-
-        const comment = {
-            id: Date.now().toString(),
-            content: newComment,
-            author: 'Anonymous',
-            timeAgo: 'now',
-            upvotes: 0,
-            replies: []
-        };
-
-        if (replyingTo) {
-            setPost(prev => ({
-                ...prev,
-                comments: prev.comments.map(c =>
-                    c.id === replyingTo
-                        ? { ...c, replies: [...c.replies, comment] }
-                        : c
-                )
-            }));
-            setReplyingTo(null);
-        } else {
-            setPost(prev => ({
-                ...prev,
-                comments: [...prev.comments, comment]
-            }));
+        } catch (error) {
+            console.error('❌ Error loading confession:', error);
+            setPost(null);
+        } finally {
+            setLoading(false);
         }
+    };
 
-        setNewComment('');
+    const handleReaction = async (reactionType) => {
+        if (!post) return;
+
+        try {
+            console.log(`💖 Reacting to confession ${post.id} with ${reactionType}`);
+            const response = await ApiService.reactToConfession(post.id, reactionType);
+
+            if (response.success) {
+                // Update the local state with the new reaction counts
+                setPost(prev => ({
+                    ...prev,
+                    reactions: response.data.reactionCounts
+                }));
+                console.log('✅ Reaction updated successfully');
+            }
+        } catch (error) {
+            console.error('❌ Error reacting to confession:', error);
+            Alert.alert('Error', 'Failed to react to confession. Please try again.');
+        }
+    };
+
+
+
+    const handleAddComment = async () => {
+        if (!newComment.trim() || !post) return;
+
+        try {
+            if (replyingTo) {
+                // Add reply to comment
+                console.log(`💬 Adding reply to comment ${replyingTo}`);
+                const response = await ApiService.addReplyToComment(post.id, replyingTo, newComment.trim());
+
+                if (response.success) {
+                    // Update the local state with the new reply
+                    setPost(prev => ({
+                        ...prev,
+                        comments: prev.comments.map(c =>
+                            c.id === replyingTo
+                                ? { ...c, replies: [...c.replies, response.data.reply] }
+                                : c
+                        )
+                    }));
+                    setReplyingTo(null);
+                    setNewComment('');
+                    console.log('✅ Reply added successfully');
+                }
+            } else {
+                // Add new comment
+                console.log(`💬 Adding comment to confession ${post.id}`);
+                const response = await ApiService.addCommentToConfession(post.id, newComment.trim());
+
+                if (response.success) {
+                    // Update the local state with the new comment
+                    setPost(prev => ({
+                        ...prev,
+                        comments: [...prev.comments, response.data.comment]
+                    }));
+                    setNewComment('');
+                    console.log('✅ Comment added successfully');
+                }
+            }
+        } catch (error) {
+            console.error('❌ Error adding comment/reply:', error);
+            if (error.message === 'Server error') {
+                Alert.alert(
+                    'Authentication Required',
+                    'Please log in to add comments.',
+                    [{ text: 'OK' }]
+                );
+            } else {
+                Alert.alert('Error', 'Failed to add comment. Please try again.');
+            }
+        }
     };
 
     const renderReply = (reply) => (
@@ -121,12 +136,6 @@ export default function PostDetailScreen() {
                 <Text style={[styles.commentTime, { color: colors.icon }]}>{reply.timeAgo}</Text>
             </View>
             <Text style={[styles.commentContent, { color: colors.text }]}>{reply.content}</Text>
-            <View style={styles.commentActions}>
-                <TouchableOpacity style={styles.commentAction}>
-                    <Ionicons name="arrow-up" size={16} color={colors.icon} />
-                    <Text style={[styles.commentActionText, { color: colors.icon }]}>{reply.upvotes}</Text>
-                </TouchableOpacity>
-            </View>
         </View>
     );
 
@@ -138,10 +147,6 @@ export default function PostDetailScreen() {
             </View>
             <Text style={[styles.commentContent, { color: colors.text }]}>{comment.content}</Text>
             <View style={styles.commentActions}>
-                <TouchableOpacity style={styles.commentAction}>
-                    <Ionicons name="arrow-up" size={16} color={colors.icon} />
-                    <Text style={[styles.commentActionText, { color: colors.icon }]}>{comment.upvotes}</Text>
-                </TouchableOpacity>
                 <TouchableOpacity
                     style={styles.commentAction}
                     onPress={() => setReplyingTo(comment.id)}
@@ -150,124 +155,170 @@ export default function PostDetailScreen() {
                     <Text style={[styles.commentActionText, { color: colors.icon }]}>Reply</Text>
                 </TouchableOpacity>
             </View>
-            {comment.replies.map(renderReply)}
+            {comment.replies && comment.replies.map(renderReply)}
         </View>
     );
 
-    return (
-        <KeyboardAvoidingView
-            style={[styles.container, { backgroundColor: colors.background }]}
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        >
-            <ScrollView style={styles.content}>
-                {/* Post Content */}
-                <View style={[styles.postContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                    <View style={styles.postHeader}>
-                        <View style={[styles.categoryTag, { backgroundColor: colors.primary }]}>
-                            <Text style={styles.categoryText}>{post.category}</Text>
-                        </View>
-                        <Text style={[styles.timeAgo, { color: colors.icon }]}>{post.timeAgo}</Text>
-                    </View>
-
-                    <Text style={[styles.postContent, { color: colors.text }]}>{post.content}</Text>
-
-                    <View style={styles.postStats}>
-                        <Text style={[styles.statsText, { color: colors.icon }]}>
-                            {post.upvotes} upvotes • {post.comments.length} comments
-                        </Text>
-                    </View>
-
-                    <View style={styles.postActions}>
-                        <TouchableOpacity
-                            style={styles.actionButton}
-                            onPress={handleUpvote}
-                        >
-                            <Ionicons name="arrow-up" size={24} color={colors.primary} />
-                            <Text style={[styles.actionText, { color: colors.primary }]}>{post.upvotes}</Text>
-                        </TouchableOpacity>
-
-                        <View style={styles.reactions}>
-                            <TouchableOpacity onPress={() => handleReaction('heart')}>
-                                <Text style={styles.reactionButton}>❤️ {post.reactions.heart}</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity onPress={() => handleReaction('laugh')}>
-                                <Text style={styles.reactionButton}>😂 {post.reactions.laugh}</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity onPress={() => handleReaction('fire')}>
-                                <Text style={styles.reactionButton}>🔥 {post.reactions.fire}</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity onPress={() => handleReaction('sad')}>
-                                <Text style={styles.reactionButton}>😢 {post.reactions.sad}</Text>
-                            </TouchableOpacity>
-                        </View>
-
-                        <TouchableOpacity style={styles.actionButton}>
-                            <Ionicons name="share-outline" size={24} color={colors.icon} />
-                        </TouchableOpacity>
-                    </View>
+    if (loading) {
+        return (
+            <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+                <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
+                    <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+                        <Ionicons name="arrow-back" size={24} color={colors.text} />
+                    </TouchableOpacity>
+                    <Text style={[styles.headerTitle, { color: colors.text }]}>Confession</Text>
+                    <View style={styles.headerSpacer} />
                 </View>
+                <View style={styles.loadingContainer}>
+                    <Text style={[styles.loadingText, { color: colors.text }]}>Loading post...</Text>
+                </View>
+            </SafeAreaView>
+        );
+    }
 
-                {/* Comments Section */}
-                <View style={styles.commentsSection}>
-                    <Text style={[styles.commentsTitle, { color: colors.text }]}>
-                        Comments ({post.comments.length})
+    if (!post) {
+        return (
+            <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+                <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
+                    <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+                        <Ionicons name="arrow-back" size={24} color={colors.text} />
+                    </TouchableOpacity>
+                    <Text style={[styles.headerTitle, { color: colors.text }]}>Confession</Text>
+                    <View style={styles.headerSpacer} />
+                </View>
+                <View style={styles.emptyContainer}>
+                    <Text style={[styles.emptyTitle, { color: colors.text }]}>Post Not Found</Text>
+                    <Text style={[styles.emptyText, { color: colors.icon }]}>
+                        This post may have been removed or doesn't exist.
                     </Text>
-                    {post.comments.map(renderComment)}
-                </View>
-            </ScrollView>
-
-            {/* Comment Input */}
-            <View style={[styles.commentInputContainer, { backgroundColor: colors.background, borderTopColor: colors.border }]}>
-                {replyingTo && (
-                    <View style={[styles.replyingIndicator, { backgroundColor: colors.surface }]}>
-                        <Text style={[styles.replyingText, { color: colors.text }]}>
-                            Replying to comment
-                        </Text>
-                        <TouchableOpacity onPress={() => setReplyingTo(null)}>
-                            <Ionicons name="close" size={20} color={colors.icon} />
-                        </TouchableOpacity>
-                    </View>
-                )}
-                <View style={styles.inputRow}>
-                    <TextInput
-                        style={[
-                            styles.commentInput,
-                            {
-                                backgroundColor: colors.surface,
-                                borderColor: colors.border,
-                                color: colors.text,
-                            },
-                        ]}
-                        placeholder={replyingTo ? "Write a reply..." : "Add a comment..."}
-                        placeholderTextColor={colors.icon}
-                        value={newComment}
-                        onChangeText={setNewComment}
-                        multiline
-                        maxLength={500}
-                    />
                     <TouchableOpacity
-                        style={[
-                            styles.sendButton,
-                            { backgroundColor: newComment.trim() ? colors.primary : colors.border },
-                        ]}
-                        onPress={handleAddComment}
-                        disabled={!newComment.trim()}
+                        style={[styles.goBackButton, { backgroundColor: colors.primary }]}
+                        onPress={() => router.back()}
                     >
-                        <Ionicons
-                            name="send"
-                            size={20}
-                            color={newComment.trim() ? 'white' : colors.icon}
-                        />
+                        <Text style={styles.goBackButtonText}>Go Back</Text>
                     </TouchableOpacity>
                 </View>
-            </View>
-        </KeyboardAvoidingView>
+            </SafeAreaView>
+        );
+    }
+
+    return (
+        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+            <KeyboardAvoidingView
+                style={{ flex: 1 }}
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            >
+                {/* Header */}
+                <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
+                    <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+                        <Ionicons name="arrow-back" size={24} color={colors.text} />
+                    </TouchableOpacity>
+                    <Text style={[styles.headerTitle, { color: colors.text }]}>Confession</Text>
+                    <View style={styles.headerSpacer} />
+                </View>
+
+                <ScrollView style={styles.content}>
+                    {/* Post Content */}
+                    <View style={[styles.postContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                        <View style={styles.postHeader}>
+                            <View style={[styles.categoryTag, { backgroundColor: colors.primary }]}>
+                                <Text style={styles.categoryText}>{post.category}</Text>
+                            </View>
+                            <Text style={[styles.timeAgo, { color: colors.icon }]}>{post.timeAgo}</Text>
+                        </View>
+
+                        <Text style={[styles.postContent, { color: colors.text }]}>{post.content}</Text>
+
+                        <View style={styles.postStats}>
+                            <Text style={[styles.statsText, { color: colors.icon }]}>
+                                {post.comments.length} comments
+                            </Text>
+                        </View>
+
+
+                    </View>
+
+                    {/* Comments Section */}
+                    <View style={styles.commentsSection}>
+                        <Text style={[styles.commentsTitle, { color: colors.text }]}>
+                            Comments ({post.comments.length})
+                        </Text>
+                        {post.comments.map(renderComment)}
+                    </View>
+                </ScrollView>
+
+                {/* Comment Input */}
+                <View style={[styles.commentInputContainer, { backgroundColor: colors.background, borderTopColor: colors.border }]}>
+                    {replyingTo && (
+                        <View style={[styles.replyingIndicator, { backgroundColor: colors.surface }]}>
+                            <Text style={[styles.replyingText, { color: colors.text }]}>
+                                Replying to comment
+                            </Text>
+                            <TouchableOpacity onPress={() => setReplyingTo(null)}>
+                                <Ionicons name="close" size={20} color={colors.icon} />
+                            </TouchableOpacity>
+                        </View>
+                    )}
+                    <View style={styles.inputRow}>
+                        <TextInput
+                            style={[
+                                styles.commentInput,
+                                {
+                                    backgroundColor: colors.surface,
+                                    borderColor: colors.border,
+                                    color: colors.text,
+                                },
+                            ]}
+                            placeholder={replyingTo ? "Write a reply..." : "Add a comment..."}
+                            placeholderTextColor={colors.icon}
+                            value={newComment}
+                            onChangeText={setNewComment}
+                            multiline
+                            maxLength={500}
+                        />
+                        <TouchableOpacity
+                            style={[
+                                styles.sendButton,
+                                { backgroundColor: newComment.trim() ? colors.primary : colors.border },
+                            ]}
+                            onPress={handleAddComment}
+                            disabled={!newComment.trim()}
+                        >
+                            <Ionicons
+                                name="send"
+                                size={20}
+                                color={newComment.trim() ? 'white' : colors.icon}
+                            />
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </KeyboardAvoidingView>
+        </SafeAreaView>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
+    },
+    header: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 15,
+        paddingVertical: 12,
+        borderBottomWidth: 1,
+    },
+    backButton: {
+        padding: 5,
+        marginRight: 10,
+    },
+    headerTitle: {
+        fontSize: 18,
+        fontWeight: '600',
+        flex: 1,
+    },
+    headerSpacer: {
+        width: 34, // Same width as back button for centering
     },
     content: {
         flex: 1,
@@ -312,27 +363,7 @@ const styles = StyleSheet.create({
     statsText: {
         fontSize: 14,
     },
-    postActions: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-    },
-    actionButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-    },
-    actionText: {
-        fontSize: 16,
-        fontWeight: '600',
-    },
-    reactions: {
-        flexDirection: 'row',
-        gap: 20,
-    },
-    reactionButton: {
-        fontSize: 16,
-    },
+
     commentsSection: {
         paddingHorizontal: 20,
         paddingBottom: 20,
@@ -418,5 +449,40 @@ const styles = StyleSheet.create({
         borderRadius: 20,
         justifyContent: 'center',
         alignItems: 'center',
+    },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    loadingText: {
+        fontSize: 16,
+    },
+    emptyContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 40,
+    },
+    emptyTitle: {
+        fontSize: 24,
+        fontWeight: 'bold',
+        marginBottom: 10,
+    },
+    emptyText: {
+        fontSize: 16,
+        textAlign: 'center',
+        lineHeight: 24,
+        marginBottom: 30,
+    },
+    goBackButton: {
+        paddingHorizontal: 30,
+        paddingVertical: 15,
+        borderRadius: 25,
+    },
+    goBackButtonText: {
+        color: 'white',
+        fontSize: 16,
+        fontWeight: '600',
     },
 });

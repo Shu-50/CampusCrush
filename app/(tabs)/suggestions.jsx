@@ -8,7 +8,6 @@ import {
     Image,
     Animated,
     PanResponder,
-    Alert,
     ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -17,61 +16,14 @@ import { useColorScheme } from 'react-native';
 import { Colors } from '../../constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
 import ApiService from '../../services/api';
+import MatchModal from '../../components/MatchModal';
 
 const { width, height } = Dimensions.get('window');
 const CARD_HEIGHT = height * 0.7;
 const CARD_WIDTH = width * 0.9;
 
-const mockProfiles = [
-    {
-        id: '1',
-        name: 'Sarah',
-        age: 20,
-        year: 'Junior',
-        branch: 'Computer Science',
-        bio: 'Love coding, coffee, and cats! Looking for someone to explore the city with 🌟',
-        interests: ['Programming', 'Coffee', 'Travel', 'Photography'],
-        photos: [
-            'https://via.placeholder.com/300x400/7B2CBF/FFFFFF?text=Sarah+1',
-            'https://via.placeholder.com/300x400/8B3CBF/FFFFFF?text=Sarah+2',
-            'https://via.placeholder.com/300x400/9B4CBF/FFFFFF?text=Sarah+3'
-        ],
-        distance: '0.5 km away',
-        isVerified: true,
-    },
-    {
-        id: '2',
-        name: 'Emma',
-        age: 19,
-        year: 'Sophomore',
-        branch: 'Psychology',
-        bio: 'Psychology major who loves reading and hiking. Always up for deep conversations! 📚',
-        interests: ['Reading', 'Hiking', 'Music', 'Art'],
-        photos: [
-            'https://via.placeholder.com/300x400/9D4EDD/FFFFFF?text=Emma+1',
-            'https://via.placeholder.com/300x400/AD5EDD/FFFFFF?text=Emma+2'
-        ],
-        distance: '1.2 km away',
-        isVerified: false,
-    },
-    {
-        id: '3',
-        name: 'Alex',
-        age: 21,
-        year: 'Senior',
-        branch: 'Engineering',
-        bio: 'Engineering student and part-time musician. Let\'s jam together! 🎸',
-        interests: ['Music', 'Engineering', 'Sports', 'Gaming'],
-        photos: [
-            'https://via.placeholder.com/300x400/C77DFF/FFFFFF?text=Alex+1',
-            'https://via.placeholder.com/300x400/D77DFF/FFFFFF?text=Alex+2',
-            'https://via.placeholder.com/300x400/E77DFF/FFFFFF?text=Alex+3',
-            'https://via.placeholder.com/300x400/F77DFF/FFFFFF?text=Alex+4'
-        ],
-        distance: '2.1 km away',
-        isVerified: true,
-    },
-];
+
+
 
 export default function SuggestionsScreen() {
     const router = useRouter();
@@ -86,11 +38,26 @@ export default function SuggestionsScreen() {
     const [likedPhotos, setLikedPhotos] = useState(new Set());
     const [photoLikeCounts, setPhotoLikeCounts] = useState({}); // Store like counts from database
     const activeScrollRef = useRef(null);
+    const [showMatchModal, setShowMatchModal] = useState(false);
+    const [matchedUser, setMatchedUser] = useState(null);
+    const [currentUser, setCurrentUser] = useState(null);
 
 
     useEffect(() => {
         loadProfiles();
+        loadCurrentUser();
     }, []);
+
+    const loadCurrentUser = async () => {
+        try {
+            const response = await ApiService.getCurrentUser();
+            if (response.success) {
+                setCurrentUser(response.data.user);
+            }
+        } catch (error) {
+            console.error('Error loading current user:', error);
+        }
+    };
 
     const loadProfiles = async () => {
         try {
@@ -135,25 +102,19 @@ export default function SuggestionsScreen() {
                     isVerified: profile.isVerified || false
                 }));
                 console.log('✅ Valid profiles processed:', validProfiles.length);
+                console.log('📷 First profile Instagram data:', validProfiles[0]?.instagram);
                 setProfiles(validProfiles);
 
                 // Extract like counts from profile data
                 extractLikeCountsFromProfiles(validProfiles);
             } else {
-                console.log('⚠️ No real profiles found, using mock data for photo gallery demo');
-                setProfiles(mockProfiles);
-
-                // Extract like counts from mock profiles
-                extractLikeCountsFromProfiles(mockProfiles);
+                console.log('⚠️ No real profiles found');
+                setProfiles([]);
             }
         } catch (error) {
             console.error('❌ Error loading profiles:', error);
             setError(error.message);
-            // Use mock data for photo gallery demo when API fails
-            setProfiles(mockProfiles);
-
-            // Extract like counts from mock profiles
-            extractLikeCountsFromProfiles(mockProfiles);
+            setProfiles([]);
         } finally {
             setLoading(false);
         }
@@ -253,21 +214,11 @@ export default function SuggestionsScreen() {
             const response = await ApiService.swipeUser(currentProfile._id || currentProfile.id, action);
 
             if (response.success && response.data.isMatch) {
-                Alert.alert(
-                    'It\'s a Match! 💕',
-                    `You and ${currentProfile.name} liked each other!`,
-                    [
-                        { text: 'Keep Swiping', style: 'cancel' },
-                        {
-                            text: 'Send Message', onPress: () => {
-                                // Navigate to chat with the match ID
-                                if (response.data.matchId) {
-                                    router.push(`/chat/${response.data.matchId}`);
-                                }
-                            }
-                        }
-                    ]
-                );
+                setMatchedUser({
+                    ...currentProfile,
+                    matchId: response.data.matchId
+                });
+                setShowMatchModal(true);
             }
         } catch (error) {
             console.error('Error swiping:', error);
@@ -323,6 +274,19 @@ export default function SuggestionsScreen() {
         if (currentIndex >= profiles.length - 3) {
             loadProfiles();
         }
+    };
+
+    const handleMatchModalClose = () => {
+        setShowMatchModal(false);
+        setMatchedUser(null);
+    };
+
+    const handleSendMessage = () => {
+        setShowMatchModal(false);
+        if (matchedUser?.matchId) {
+            router.push(`/chat/${matchedUser.matchId}`);
+        }
+        setMatchedUser(null);
     };
 
     const handlePhotoLike = async (profileId, photoIndex) => {
@@ -454,6 +418,14 @@ export default function SuggestionsScreen() {
                             <Text style={[styles.cardBio, { color: colors.text }]}>
                                 {profile.bio || 'No bio available'}
                             </Text>
+                            {profile.instagram && profile.instagram.username && profile.instagram.isPublic && (
+                                <TouchableOpacity style={styles.instagramContainer}>
+                                    <Ionicons name="logo-instagram" size={16} color="#E4405F" />
+                                    <Text style={[styles.instagramText, { color: colors.text }]}>
+                                        @{profile.instagram.username}
+                                    </Text>
+                                </TouchableOpacity>
+                            )}
                             <View style={styles.interests}>
                                 {(profile.interests || []).slice(0, 5).map((interest, idx) => (
                                     <View key={idx} style={[styles.interestTag, { backgroundColor: colors.surface }]}>
@@ -586,6 +558,14 @@ export default function SuggestionsScreen() {
                         <Text style={[styles.cardBio, { color: colors.text }]}>
                             {profile.bio || 'No bio available'}
                         </Text>
+                        {profile.instagram && profile.instagram.username && profile.instagram.isPublic && (
+                            <TouchableOpacity style={styles.instagramContainer}>
+                                <Ionicons name="logo-instagram" size={16} color="#E4405F" />
+                                <Text style={[styles.instagramText, { color: colors.text }]}>
+                                    @{profile.instagram.username}
+                                </Text>
+                            </TouchableOpacity>
+                        )}
                         <View style={styles.interests}>
                             {(profile.interests || []).slice(0, 5).map((interest, idx) => (
                                 <View key={idx} style={[styles.interestTag, { backgroundColor: colors.surface }]}>
@@ -754,6 +734,14 @@ export default function SuggestionsScreen() {
                     <Ionicons name="heart" size={30} color="white" />
                 </TouchableOpacity>
             </View>
+
+            <MatchModal
+                visible={showMatchModal}
+                onClose={handleMatchModalClose}
+                onSendMessage={handleSendMessage}
+                matchedUser={matchedUser}
+                currentUser={currentUser}
+            />
         </SafeAreaView>
     );
 }
@@ -877,6 +865,17 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         gap: 8,
         marginBottom: 5,
+    },
+    instagramContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: 8,
+        marginBottom: 8,
+        gap: 6,
+    },
+    instagramText: {
+        fontSize: 14,
+        fontWeight: '500',
     },
     cardName: {
         fontSize: 24,
@@ -1010,5 +1009,6 @@ const styles = StyleSheet.create({
     disabledButton: {
         opacity: 0.5,
     },
+
 
 });

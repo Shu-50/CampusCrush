@@ -102,6 +102,12 @@ class ApiService {
     async makeRequest(endpoint, options = {}) {
         const token = await this.getAuthToken();
 
+        if (!token) {
+            console.warn('⚠️ No authentication token found');
+        } else {
+            console.log('🔑 Using auth token:', token.substring(0, 20) + '...');
+        }
+
         const config = {
             headers: {
                 'Content-Type': 'application/json',
@@ -432,19 +438,52 @@ class ApiService {
         return this.makeRequest(`/confessions?${params}`);
     }
 
-    async createConfession(content, category = 'secret') {
+    async createConfession(content, category = 'general') {
+        if (!content?.trim()) {
+            throw new Error('Confession content is required');
+        }
+
+        console.log('📝 Creating confession with category:', category);
         return this.makeRequest('/confessions', {
             method: 'POST',
-            body: JSON.stringify({ content, category }),
+            body: JSON.stringify({ content: content.trim(), category }),
         });
     }
 
 
 
+    async getConfession(confessionId) {
+        return this.makeRequest(`/confessions/${confessionId}`);
+    }
+
     async reactToConfession(confessionId, type) {
         return this.makeRequest(`/confessions/${confessionId}/react`, {
             method: 'POST',
             body: JSON.stringify({ type }),
+        });
+    }
+
+    async addCommentToConfession(confessionId, content) {
+        if (!confessionId || !content?.trim()) {
+            throw new Error('Confession ID and content are required');
+        }
+
+        console.log('💬 Adding comment to confession:', confessionId);
+        return this.makeRequest(`/confessions/${confessionId}/comments`, {
+            method: 'POST',
+            body: JSON.stringify({ content: content.trim() }),
+        });
+    }
+
+    async addReplyToComment(confessionId, commentId, content) {
+        if (!confessionId || !commentId || !content?.trim()) {
+            throw new Error('Confession ID, comment ID, and content are required');
+        }
+
+        console.log('💬 Adding reply to comment:', commentId);
+        return this.makeRequest(`/confessions/${confessionId}/comments/${commentId}/replies`, {
+            method: 'POST',
+            body: JSON.stringify({ content: content.trim() }),
         });
     }
 }

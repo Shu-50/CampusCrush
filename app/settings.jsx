@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     View,
     Text,
@@ -6,7 +6,6 @@ import {
     ScrollView,
     TouchableOpacity,
     Switch,
-    Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -14,6 +13,8 @@ import { useColorScheme } from 'react-native';
 import { Colors } from '../constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
+import ApiService from '../services/api';
+import LogoutModal from '../components/LogoutModal';
 
 export default function SettingsScreen() {
     const router = useRouter();
@@ -24,23 +25,63 @@ export default function SettingsScreen() {
     const [darkMode, setDarkMode] = useState(colorScheme === 'dark');
     const [notifications, setNotifications] = useState(true);
     const [showOnline, setShowOnline] = useState(true);
+    const [instagramPublic, setInstagramPublic] = useState(false);
+    const [user, setUser] = useState(null);
+    const [showLogoutModal, setShowLogoutModal] = useState(false);
+
+    useEffect(() => {
+        loadUserData();
+    }, []);
+
+    const loadUserData = async () => {
+        try {
+            const response = await ApiService.getCurrentUser();
+            if (response.success) {
+                setUser(response.data.user);
+                setInstagramPublic(response.data.user.instagram?.isPublic || false);
+            }
+        } catch (error) {
+            console.error('Error loading user data:', error);
+        }
+    };
+
+    const updateInstagramPrivacy = async (isPublic) => {
+        try {
+            const response = await ApiService.updateProfile({
+                instagram: {
+                    username: user.instagram?.username || '',
+                    isPublic: isPublic
+                }
+            });
+
+            if (response.success) {
+                setInstagramPublic(isPublic);
+                setUser(prev => ({
+                    ...prev,
+                    instagram: {
+                        ...prev.instagram,
+                        isPublic: isPublic
+                    }
+                }));
+            }
+        } catch (error) {
+            console.error('Error updating Instagram privacy:', error);
+            Alert.alert('Error', 'Failed to update Instagram privacy settings');
+        }
+    };
 
     const handleLogout = () => {
-        Alert.alert(
-            'Logout',
-            'Are you sure you want to logout?',
-            [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                    text: 'Logout',
-                    style: 'destructive',
-                    onPress: async () => {
-                        await logout();
-                        router.replace('/auth');
-                    },
-                },
-            ]
-        );
+        setShowLogoutModal(true);
+    };
+
+    const handleLogoutConfirm = async () => {
+        setShowLogoutModal(false);
+        await logout();
+        router.replace('/auth');
+    };
+
+    const handleLogoutCancel = () => {
+        setShowLogoutModal(false);
     };
 
     const renderSettingItem = (icon, title, subtitle, onPress, rightComponent) => (
@@ -117,6 +158,19 @@ export default function SettingsScreen() {
                             onValueChange={setShowOnline}
                             trackColor={{ false: colors.border, true: colors.primary }}
                             thumbColor={showOnline ? 'white' : colors.icon}
+                        />
+                    )}
+
+                    {user?.instagram?.username && renderSettingItem(
+                        'logo-instagram',
+                        'Show Instagram Profile',
+                        `Display @${user.instagram.username} on your profile`,
+                        () => updateInstagramPrivacy(!instagramPublic),
+                        <Switch
+                            value={instagramPublic}
+                            onValueChange={updateInstagramPrivacy}
+                            trackColor={{ false: colors.border, true: colors.primary }}
+                            thumbColor={instagramPublic ? 'white' : colors.icon}
                         />
                     )}
                 </View>
@@ -198,6 +252,12 @@ export default function SettingsScreen() {
                     </Text>
                 </View>
             </ScrollView>
+
+            <LogoutModal
+                visible={showLogoutModal}
+                onClose={handleLogoutCancel}
+                onConfirm={handleLogoutConfirm}
+            />
         </SafeAreaView>
     );
 }

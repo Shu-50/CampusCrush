@@ -62,21 +62,9 @@ const yearMapping = {
     'Final': 'Final Year'
 };
 
-const mockUser = {
-    name: 'John Doe',
-    age: 20,
-    year: '3rd',
-    branch: 'CSE',
-    bio: 'Love coding, coffee, and cats! Looking for someone to explore the city with 🌟',
-    interests: ['Programming', 'Coffee', 'Travel', 'Photography', 'Music', 'Gaming'],
-    photos: [
-        'https://via.placeholder.com/150x150/7B2CBF/FFFFFF?text=Photo1',
-        'https://via.placeholder.com/150x150/9D4EDD/FFFFFF?text=Photo2',
-        'https://via.placeholder.com/150x150/C77DFF/FFFFFF?text=Photo3',
-    ],
-    isVerified: true,
-    college: 'Tech University',
-};
+
+
+
 
 export default function ProfileScreen() {
     const router = useRouter();
@@ -84,7 +72,7 @@ export default function ProfileScreen() {
     const colors = Colors[colorScheme ?? 'light'];
 
 
-    const [user, setUser] = useState(mockUser);
+    const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
     const [selectedPhoto, setSelectedPhoto] = useState(null);
     const [photoModalVisible, setPhotoModalVisible] = useState(false);
@@ -107,19 +95,20 @@ export default function ProfileScreen() {
             if (response.success) {
                 setUser({
                     ...response.data.user,
-                    photos: response.data.user.photos?.length > 0 ? response.data.user.photos.map(p => p.url || p) : mockUser.photos,
-                    interests: response.data.user.interests || mockUser.interests,
+                    photos: response.data.user.photos?.length > 0 ? response.data.user.photos.map(p => p.url || p) : [],
+                    interests: response.data.user.interests || [],
                     isVerified: true,
                     year: response.data.user.year || null,
                     branch: response.data.user.branch || null,
                     gender: response.data.user.gender || null,
                     lookingFor: response.data.user.lookingFor || null,
-                    preference: response.data.user.preference || null
+                    preference: response.data.user.preference || null,
+                    instagram: response.data.user.instagram || null
                 });
             }
         } catch (error) {
             console.error('Error loading profile:', error);
-            // Keep using mock data if API fails
+            setUser(null);
         } finally {
             setLoading(false);
         }
@@ -344,6 +333,70 @@ export default function ProfileScreen() {
         }
     };
 
+    if (loading) {
+        return (
+            <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+                <View style={styles.header}>
+                    <Text style={[styles.title, { color: colors.text }]}>Profile</Text>
+                    <View style={styles.headerButtons}>
+                        <TouchableOpacity
+                            style={styles.headerButton}
+                            onPress={() => router.push('/profile-setup')}
+                        >
+                            <Ionicons name="create-outline" size={24} color={colors.text} />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={styles.headerButton}
+                            onPress={() => router.push('/settings')}
+                        >
+                            <Ionicons name="settings-outline" size={24} color={colors.text} />
+                        </TouchableOpacity>
+                    </View>
+                </View>
+                <View style={styles.loadingContainer}>
+                    <Text style={[styles.loadingText, { color: colors.text }]}>Loading profile...</Text>
+                </View>
+            </SafeAreaView>
+        );
+    }
+
+    if (!user) {
+        return (
+            <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+                <View style={styles.header}>
+                    <Text style={[styles.title, { color: colors.text }]}>Profile</Text>
+                    <View style={styles.headerButtons}>
+                        <TouchableOpacity
+                            style={styles.headerButton}
+                            onPress={() => router.push('/profile-setup')}
+                        >
+                            <Ionicons name="create-outline" size={24} color={colors.text} />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={styles.headerButton}
+                            onPress={() => router.push('/settings')}
+                        >
+                            <Ionicons name="settings-outline" size={24} color={colors.text} />
+                        </TouchableOpacity>
+                    </View>
+                </View>
+                <View style={styles.emptyContainer}>
+                    <Ionicons name="person-circle-outline" size={80} color={colors.icon} />
+                    <Text style={[styles.emptyTitle, { color: colors.text }]}>Profile Not Found</Text>
+                    <Text style={[styles.emptyText, { color: colors.icon }]}>
+                        Unable to load your profile. Please complete your profile setup.
+                    </Text>
+                    <TouchableOpacity
+                        style={[styles.setupButton, { backgroundColor: colors.primary }]}
+                        onPress={() => router.push('/profile-setup')}
+                    >
+                        <Text style={styles.setupButtonText}>Setup Profile</Text>
+                    </TouchableOpacity>
+                </View>
+            </SafeAreaView>
+        );
+    }
+
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
             <ScrollView style={{ flex: 1 }}>
@@ -368,9 +421,15 @@ export default function ProfileScreen() {
                 {/* Profile Card */}
                 <View style={[styles.profileCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
                     <View style={styles.profileHeader}>
-                        <TouchableOpacity onPress={() => handlePhotoPress(user.photos[0], 0)}>
+                        <TouchableOpacity onPress={() => user.photos?.[0] && handlePhotoPress(user.photos[0], 0)}>
                             <View style={styles.mainPhotoContainer}>
-                                <Image source={{ uri: user.photos[0] }} style={styles.profileImage} />
+                                {user.photos?.[0] ? (
+                                    <Image source={{ uri: user.photos[0].url || user.photos[0] }} style={styles.profileImage} />
+                                ) : (
+                                    <View style={[styles.profileImage, styles.placeholderImage, { backgroundColor: colors.surface }]}>
+                                        <Ionicons name="person" size={60} color={colors.icon} />
+                                    </View>
+                                )}
                                 <View style={[styles.mainPhotoBadge, { backgroundColor: colors.primary }]}>
                                     <Ionicons name="star" size={12} color="white" />
                                 </View>
@@ -420,6 +479,20 @@ export default function ProfileScreen() {
                                 </Text>
                             </View>
                         )}
+                        {user.instagram && user.instagram.username && user.instagram.isPublic && (
+                            <TouchableOpacity
+                                style={styles.detailItem}
+                                onPress={() => {
+                                    console.log('Open Instagram:', user.instagram.username);
+                                }}
+                            >
+                                <Ionicons name="logo-instagram" size={16} color="#E4405F" />
+                                <Text style={[styles.detailText, { color: colors.text }]}>
+                                    @{user.instagram.username}
+                                </Text>
+                            </TouchableOpacity>
+                        )}
+
                     </View>
 
                     {user.bio && (
@@ -644,6 +717,10 @@ const styles = StyleSheet.create({
         height: 130,
         borderRadius: 70,
     },
+    placeholderImage: {
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
     mainPhotoBadge: {
         position: 'absolute',
         bottom: 4,
@@ -854,5 +931,41 @@ const styles = StyleSheet.create({
     detailText: {
         fontSize: 14,
         fontWeight: '500',
+    },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    loadingText: {
+        fontSize: 16,
+    },
+    emptyContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 40,
+    },
+    emptyTitle: {
+        fontSize: 24,
+        fontWeight: 'bold',
+        marginTop: 20,
+        marginBottom: 10,
+    },
+    emptyText: {
+        fontSize: 16,
+        textAlign: 'center',
+        lineHeight: 24,
+        marginBottom: 30,
+    },
+    setupButton: {
+        paddingHorizontal: 30,
+        paddingVertical: 15,
+        borderRadius: 25,
+    },
+    setupButtonText: {
+        color: 'white',
+        fontSize: 16,
+        fontWeight: '600',
     },
 });
