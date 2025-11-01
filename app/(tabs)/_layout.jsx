@@ -9,12 +9,34 @@ export default function TabLayout() {
 
     return (
         <Tabs
+            initialRouteName="suggestions"
             screenOptions={{
                 tabBarActiveTintColor: colors.primary,
                 tabBarInactiveTintColor: colors.icon,
                 tabBarStyle: {
-                    backgroundColor: colors.background,
+                    backgroundColor: colors.card,
                     borderTopColor: colors.border,
+                    borderTopWidth: 1,
+                    paddingBottom: 12,
+                    paddingTop: 8,
+                    paddingHorizontal: 8,
+                    height: 75,
+                    shadowColor: '#000',
+                    shadowOffset: {
+                        width: 0,
+                        height: -2,
+                    },
+                    shadowOpacity: 0.1,
+                    shadowRadius: 8,
+                    elevation: 8,
+                },
+                tabBarLabelStyle: {
+                    fontSize: 12,
+                    fontWeight: '500',
+                    marginTop: 4,
+                },
+                tabBarIconStyle: {
+                    marginTop: 2,
                 },
                 headerStyle: {
                     backgroundColor: colors.background,
@@ -39,9 +61,19 @@ export default function TabLayout() {
                 }}
             />
             <Tabs.Screen
+                name="notifications"
+                options={{
+                    title: 'Activity',
+                    headerShown: false,
+                    tabBarIcon: ({ color, size }) => (
+                        <Ionicons name="notifications" size={size} color={color} />
+                    ),
+                }}
+            />
+            <Tabs.Screen
                 name="suggestions"
                 options={{
-                    title: 'Discover',
+                    title: 'Discovery',
                     headerShown: false,
                     tabBarIcon: ({ color, size }) => (
                         <Ionicons name="heart" size={size} color={color} />
@@ -55,16 +87,6 @@ export default function TabLayout() {
                     headerShown: false,
                     tabBarIcon: ({ color, size }) => (
                         <Ionicons name="chatbubbles" size={size} color={color} />
-                    ),
-                }}
-            />
-            <Tabs.Screen
-                name="notifications"
-                options={{
-                    title: 'Activity',
-                    headerShown: false,
-                    tabBarIcon: ({ color, size }) => (
-                        <Ionicons name="notifications" size={size} color={color} />
                     ),
                 }}
             />
