@@ -1,18 +1,21 @@
-import React, { useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
+import { useRouter } from 'expo-router';
+import { useState } from 'react';
 import {
-    View,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    StyleSheet,
     Alert,
+    Image,
     KeyboardAvoidingView,
     Platform,
     ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    useColorScheme,
+    View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import { useColorScheme } from 'react-native';
 import { Colors } from '../../constants/Colors';
 import { useAuth } from '../../context/AuthContext';
 
@@ -28,10 +31,49 @@ export default function SignupScreen() {
         password: '',
         confirmPassword: '',
     });
+    const [selfiePhoto, setSelfiePhoto] = useState(null);
+    const [collegeIdPhoto, setCollegeIdPhoto] = useState(null);
     const [loading, setLoading] = useState(false);
 
     const handleInputChange = (field, value) => {
         setFormData(prev => ({ ...prev, [field]: value }));
+    };
+
+    const captureSelfie = async () => {
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+
+        if (status !== 'granted') {
+            Alert.alert('Permission needed', 'Please grant camera permissions to take selfie.');
+            return;
+        }
+
+        const result = await ImagePicker.launchCameraAsync({
+            allowsEditing: true,
+            quality: 0.8,
+        });
+
+        if (!result.canceled && result.assets[0]) {
+            setSelfiePhoto(result.assets[0].uri);
+        }
+    };
+
+    const uploadCollegeId = async () => {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+        if (status !== 'granted') {
+            Alert.alert('Permission needed', 'Please grant gallery permissions to upload college ID.');
+            return;
+        }
+
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            quality: 0.8,
+        });
+
+        if (!result.canceled && result.assets[0]) {
+            setCollegeIdPhoto(result.assets[0].uri);
+        }
     };
 
     const handleSignup = async () => {
@@ -42,8 +84,18 @@ export default function SignupScreen() {
             return;
         }
 
-        if (!email.includes('@') || !email.includes('.edu')) {
-            Alert.alert('Error', 'Please use your college email address');
+        if (!selfiePhoto) {
+            Alert.alert('Error', 'Please capture your selfie');
+            return;
+        }
+
+        if (!collegeIdPhoto) {
+            Alert.alert('Error', 'Please upload your college ID');
+            return;
+        }
+
+        if (!email.includes('@')) {
+            Alert.alert('Error', 'Please enter a valid email address');
             return;
         }
 
@@ -60,18 +112,13 @@ export default function SignupScreen() {
         setLoading(true);
 
         try {
-            const result = await register({ name, email, password });
+            const result = await register({ name, email, password, selfiePhoto, collegeIdPhoto });
             if (result.success) {
-                Alert.alert(
-                    'Success',
-                    'Account created! Please complete your profile.',
-                    [
-                        {
-                            text: 'OK',
-                            onPress: () => router.push('/profile-setup'),
-                        },
-                    ]
-                );
+                // Redirect to email verification screen
+                router.replace({
+                    pathname: '/auth/verify-email',
+                    params: { email: email }
+                });
             } else {
                 Alert.alert('Registration Failed', result.message || 'Failed to create account');
             }
@@ -99,6 +146,35 @@ export default function SignupScreen() {
 
                     <View style={styles.form}>
                         <View style={styles.inputContainer}>
+                            <Text style={[styles.label, { color: colors.text }]}>Selfie (Required)</Text>
+                            <Text style={[styles.helperText, { color: colors.icon }]}>
+                                Take a selfie using camera
+                            </Text>
+                            {selfiePhoto ? (
+                                <View style={styles.photoContainer}>
+                                    <Image source={{ uri: selfiePhoto }} style={styles.photoPreview} />
+                                    <TouchableOpacity
+                                        style={[styles.retakeButton, { backgroundColor: colors.primary }]}
+                                        onPress={captureSelfie}
+                                    >
+                                        <Ionicons name="camera" size={20} color="white" />
+                                        <Text style={styles.retakeButtonText}>Retake Selfie</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            ) : (
+                                <TouchableOpacity
+                                    style={[styles.captureButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                                    onPress={captureSelfie}
+                                >
+                                    <Ionicons name="camera" size={40} color={colors.primary} />
+                                    <Text style={[styles.captureButtonText, { color: colors.text }]}>
+                                        Capture Selfie
+                                    </Text>
+                                </TouchableOpacity>
+                            )}
+                        </View>
+
+                        <View style={styles.inputContainer}>
                             <Text style={[styles.label, { color: colors.text }]}>Full Name</Text>
                             <TextInput
                                 style={[
@@ -117,7 +193,7 @@ export default function SignupScreen() {
                         </View>
 
                         <View style={styles.inputContainer}>
-                            <Text style={[styles.label, { color: colors.text }]}>College Email</Text>
+                            <Text style={[styles.label, { color: colors.text }]}>Email</Text>
                             <TextInput
                                 style={[
                                     styles.input,
@@ -127,13 +203,42 @@ export default function SignupScreen() {
                                         color: colors.text,
                                     },
                                 ]}
-                                placeholder="your.email@college.edu"
+                                placeholder="your.email@example.com"
                                 placeholderTextColor={colors.icon}
                                 value={formData.email}
                                 onChangeText={(value) => handleInputChange('email', value)}
                                 keyboardType="email-address"
                                 autoCapitalize="none"
                             />
+                        </View>
+
+                        <View style={styles.inputContainer}>
+                            <Text style={[styles.label, { color: colors.text }]}>College ID (Required)</Text>
+                            <Text style={[styles.helperText, { color: colors.icon }]}>
+                                Upload a photo of your college ID
+                            </Text>
+                            {collegeIdPhoto ? (
+                                <View style={styles.photoContainer}>
+                                    <Image source={{ uri: collegeIdPhoto }} style={styles.photoPreview} />
+                                    <TouchableOpacity
+                                        style={[styles.retakeButton, { backgroundColor: colors.primary }]}
+                                        onPress={uploadCollegeId}
+                                    >
+                                        <Ionicons name="images" size={20} color="white" />
+                                        <Text style={styles.retakeButtonText}>Change Photo</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            ) : (
+                                <TouchableOpacity
+                                    style={[styles.captureButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                                    onPress={uploadCollegeId}
+                                >
+                                    <Ionicons name="images" size={40} color={colors.primary} />
+                                    <Text style={[styles.captureButtonText, { color: colors.text }]}>
+                                        Upload College ID
+                                    </Text>
+                                </TouchableOpacity>
+                            )}
                         </View>
 
                         <View style={styles.inputContainer}>
@@ -273,6 +378,49 @@ const styles = StyleSheet.create({
         fontSize: 14,
     },
     loginLink: {
+        fontSize: 14,
+        fontWeight: '600',
+    },
+    helperText: {
+        fontSize: 12,
+        marginBottom: 10,
+        fontStyle: 'italic',
+    },
+    photoContainer: {
+        alignItems: 'center',
+        marginTop: 10,
+    },
+    photoPreview: {
+        width: '100%',
+        height: 200,
+        borderRadius: 12,
+        marginBottom: 10,
+    },
+    captureButton: {
+        paddingVertical: 40,
+        paddingHorizontal: 20,
+        borderRadius: 12,
+        borderWidth: 2,
+        borderStyle: 'dashed',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    captureButtonText: {
+        fontSize: 14,
+        fontWeight: '600',
+        marginTop: 10,
+        textAlign: 'center',
+    },
+    retakeButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 10,
+        paddingHorizontal: 20,
+        borderRadius: 20,
+        gap: 8,
+    },
+    retakeButtonText: {
+        color: 'white',
         fontSize: 14,
         fontWeight: '600',
     },

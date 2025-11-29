@@ -1,17 +1,17 @@
-import React, { useState } from 'react';
+import { useRouter } from 'expo-router';
+import { useState } from 'react';
 import {
-    View,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    StyleSheet,
     Alert,
     KeyboardAvoidingView,
     Platform,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    useColorScheme,
+    View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import { useColorScheme } from 'react-native';
 import { Colors } from '../../constants/Colors';
 
 export default function ForgotPasswordScreen() {
@@ -28,27 +28,44 @@ export default function ForgotPasswordScreen() {
             return;
         }
 
-        if (!email.includes('@') || !email.includes('.edu')) {
-            Alert.alert('Error', 'Please use your college email address');
+        if (!email.includes('@')) {
+            Alert.alert('Error', 'Please enter a valid email address');
             return;
         }
 
         setLoading(true);
 
-        // Simulate API call
-        setTimeout(() => {
+        try {
+            const response = await fetch('http://10.156.157.133:5001/api/auth/forgot-password', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ email }),
+            });
+
+            const data = await response.json();
+
             setLoading(false);
-            Alert.alert(
-                'Success',
-                'Password reset instructions have been sent to your email.',
-                [
-                    {
-                        text: 'OK',
-                        onPress: () => router.back(),
-                    },
-                ]
-            );
-        }, 1500);
+
+            if (data.success) {
+                Alert.alert(
+                    'Success',
+                    'If an account exists with this email, you will receive password reset instructions.',
+                    [
+                        {
+                            text: 'OK',
+                            onPress: () => router.back(),
+                        },
+                    ]
+                );
+            } else {
+                Alert.alert('Error', data.message || 'Failed to send reset email');
+            }
+        } catch (error) {
+            setLoading(false);
+            Alert.alert('Error', 'Network error. Please try again.');
+        }
     };
 
     return (
@@ -68,7 +85,7 @@ export default function ForgotPasswordScreen() {
 
                     <View style={styles.form}>
                         <View style={styles.inputContainer}>
-                            <Text style={[styles.label, { color: colors.text }]}>College Email</Text>
+                            <Text style={[styles.label, { color: colors.text }]}>Email</Text>
                             <TextInput
                                 style={[
                                     styles.input,
@@ -78,7 +95,7 @@ export default function ForgotPasswordScreen() {
                                         color: colors.text,
                                     },
                                 ]}
-                                placeholder="your.email@college.edu"
+                                placeholder="your.email@example.com"
                                 placeholderTextColor={colors.icon}
                                 value={email}
                                 onChangeText={setEmail}

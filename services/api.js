@@ -188,18 +188,78 @@ class ApiService {
             throw new Error('Name, email, and password are required');
         }
 
-        if (!userData.email.includes('@') || !userData.email.includes('.edu')) {
-            throw new Error('Please use a valid college email address');
+        if (!userData.selfiePhoto) {
+            throw new Error('Selfie photo is required');
+        }
+
+        if (!userData.collegeIdPhoto) {
+            throw new Error('College ID photo is required');
+        }
+
+        if (!userData.email.includes('@')) {
+            throw new Error('Please enter a valid email address');
         }
 
         if (userData.password.length < 6) {
             throw new Error('Password must be at least 6 characters long');
         }
 
-        return this.makeRequest('/auth/register', {
-            method: 'POST',
-            body: JSON.stringify(userData),
+        const token = await this.getAuthToken();
+
+        const formData = new FormData();
+        formData.append('name', userData.name);
+        formData.append('email', userData.email);
+        formData.append('password', userData.password);
+        formData.append('selfiePhoto', {
+            uri: userData.selfiePhoto,
+            type: 'image/jpeg',
+            name: 'selfie.jpg',
         });
+        formData.append('collegeIdPhoto', {
+            uri: userData.collegeIdPhoto,
+            type: 'image/jpeg',
+            name: 'college-id.jpg',
+        });
+
+        const fullUrl = `${this.baseURL}/auth/register`;
+        console.log('📡 Making registration request to:', fullUrl);
+
+        try {
+            const response = await fetch(fullUrl, {
+                method: 'POST',
+                headers: {
+                    ...(token && { Authorization: `Bearer ${token}` }),
+                    // Don't set Content-Type for multipart/form-data
+                },
+                body: formData,
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('❌ Registration Error Response:', response.status, errorText);
+
+                let errorData;
+                try {
+                    errorData = JSON.parse(errorText);
+                } catch {
+                    errorData = { message: errorText || 'Registration failed' };
+                }
+
+                throw new Error(errorData.message || `HTTP ${response.status}`);
+            }
+
+            const data = await response.json();
+            console.log('✅ Registration Success');
+
+            if (data.success && data.data.token) {
+                await this.setAuthToken(data.data.token);
+            }
+
+            return data;
+        } catch (error) {
+            console.error('❌ Registration error:', error);
+            throw error;
+        }
     }
 
     async login(credentials) {
@@ -208,8 +268,8 @@ class ApiService {
             throw new Error('Email and password are required');
         }
 
-        if (!credentials.email.includes('@') || !credentials.email.includes('.edu')) {
-            throw new Error('Please use a valid college email address');
+        if (!credentials.email.includes('@')) {
+            throw new Error('Please enter a valid email address');
         }
 
         const response = await this.makeRequest('/auth/login', {
@@ -227,6 +287,20 @@ class ApiService {
     async logout() {
         await this.makeRequest('/auth/logout', { method: 'POST' });
         await this.removeAuthToken();
+    }
+
+    async resendVerificationEmail(email) {
+        return this.makeRequest('/auth/resend-verification', {
+            method: 'POST',
+            body: JSON.stringify({ email }),
+        });
+    }
+
+    async forgotPassword(email) {
+        return this.makeRequest('/auth/forgot-password', {
+            method: 'POST',
+            body: JSON.stringify({ email }),
+        });
     }
 
     async getCurrentUser() {

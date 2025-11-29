@@ -1,18 +1,18 @@
-import React, { useState } from 'react';
+import { useRouter } from 'expo-router';
+import { useState } from 'react';
 import {
-    View,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    StyleSheet,
     Alert,
     KeyboardAvoidingView,
     Platform,
     ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    useColorScheme,
+    View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import { useColorScheme } from 'react-native';
 import { Colors } from '../../constants/Colors';
 import { useAuth } from '../../context/AuthContext';
 
@@ -32,8 +32,8 @@ export default function LoginScreen() {
             return;
         }
 
-        if (!email.includes('@') || !email.includes('.edu')) {
-            Alert.alert('Error', 'Please use your college email address');
+        if (!email.includes('@')) {
+            Alert.alert('Error', 'Please enter a valid email address');
             return;
         }
 
@@ -70,7 +70,7 @@ export default function LoginScreen() {
 
                     <View style={styles.form}>
                         <View style={styles.inputContainer}>
-                            <Text style={[styles.label, { color: colors.text }]}>College Email</Text>
+                            <Text style={[styles.label, { color: colors.text }]}>Email</Text>
                             <TextInput
                                 style={[
                                     styles.input,
@@ -80,7 +80,7 @@ export default function LoginScreen() {
                                         color: colors.text,
                                     },
                                 ]}
-                                placeholder="your.email@college.edu"
+                                placeholder="your.email@example.com"
                                 placeholderTextColor={colors.icon}
                                 value={email}
                                 onChangeText={setEmail}
