@@ -1,13 +1,14 @@
+
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
 // Multiple API URLs to try in order (working URL first for faster connection)
 const API_URLS = __DEV__ ? [
-    'http://10.156.157.133:5001/api', // Working URL - put first for speed
+    'https://backend-campuscrush-m62s.onrender.com/api', // Working URL - put first for speed
     Platform.OS === 'android' ? 'http://10.0.2.2:5001/api' : 'http://localhost:5001/api',
     'http://127.0.0.1:5001/api',
     'http://192.168.1.100:5001/api', // Common router IP range
-] : ['https://your-production-api.com/api'];
+] : ['https://backend-campuscrush-m62s.onrender.com/api'];
 
 const API_BASE_URL = API_URLS[0]; // Start with first URL (now the working one)
 

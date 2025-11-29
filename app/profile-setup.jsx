@@ -92,6 +92,7 @@ export default function ProfileSetupScreen() {
         selectedInterests: [],
         instagramUsername: '',
         instagramIsPublic: false,
+        college: '',
     });
     const [photos, setPhotos] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -152,6 +153,7 @@ export default function ProfileSetupScreen() {
                     selectedInterests: userData.interests || [],
                     instagramUsername: userData.instagram?.username || '',
                     instagramIsPublic: userData.instagram?.isPublic || false,
+                    college: userData.college || '',
                 };
 
                 console.log('📝 Setting profile data:', profileData);
@@ -181,6 +183,7 @@ export default function ProfileSetupScreen() {
                     preference: userData.preference || '',
                     lookingFor: userData.lookingFor || 'Not sure',
                     selectedInterests: userData.interests || [],
+                    college: userData.college || '',
                 };
 
                 console.log('📝 Setting profile data from auth context:', profileData);
@@ -347,6 +350,7 @@ export default function ProfileSetupScreen() {
                 preference: profile.preference,
                 lookingFor: profile.lookingFor,
                 interests: profile.selectedInterests,
+                college: profile.college.trim(),
                 instagram: {
                     username: profile.instagramUsername.trim(),
                     isPublic: profile.instagramIsPublic
@@ -508,6 +512,24 @@ export default function ProfileSetupScreen() {
                                     onChangeText={(value) => setProfile(prev => ({ ...prev, bio: value }))}
                                     multiline
                                     numberOfLines={4}
+                                />
+                            </View>
+
+                            <View style={styles.inputContainer}>
+                                <Text style={[styles.label, { color: colors.text }]}>College Name</Text>
+                                <TextInput
+                                    style={[
+                                        styles.input,
+                                        {
+                                            backgroundColor: colors.surface,
+                                            borderColor: colors.border,
+                                            color: colors.text,
+                                        },
+                                    ]}
+                                    placeholder="Enter your college name"
+                                    placeholderTextColor={colors.icon}
+                                    value={profile.college}
+                                    onChangeText={(value) => setProfile(prev => ({ ...prev, college: value }))}
                                 />
                             </View>
 

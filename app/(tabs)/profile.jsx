@@ -99,6 +99,7 @@ export default function ProfileScreen() {
                     interests: response.data.user.interests || [],
                     isVerified: true,
                     year: response.data.user.year || null,
+                    college: response.data.user.college || null,
                     branch: response.data.user.branch || null,
                     gender: response.data.user.gender || null,
                     lookingFor: response.data.user.lookingFor || null,
